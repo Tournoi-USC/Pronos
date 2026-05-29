@@ -330,6 +330,10 @@ const M=[
   {id:104,ph:"FINALE",gr:null,dt:"2026-07-19",ti:"21:00",h:"W101",a:"W102",v:"New York"}
 ];
 
+// ── ADMIN ────────────────────────────────────────────────────
+const ADMIN_USER='adminprono';
+function isAdmin(){return S.user===ADMIN_USER}
+
 // ── STATE ────────────────────────────────────────────────────
 let S={user:null,page:'accueil',tab:'POULES',grp:'ALL',cpw:false,admVis:false};
 let _adm=false;
@@ -580,7 +584,7 @@ function cardMatch(m){
   </div>
   ${started&&!res?'<div style="font-size:.72rem;color:var(--muted);text-align:center;margin-top:5px">🔒 Match débuté</div>':''}
   `:`<div class="mf"><span></span><span>🔒 Connexion requise</span></div>`}
-  ${_adm?`
+  ${_adm&&isAdmin()?`
   <div class="rrow">
     <span style="font-size:.7rem;color:var(--muted)">🛡 Score réel:</span>
     <input class="ri" type="number" min="0" max="20" id="rh${m.id}" value="${res?res.h:''}" placeholder="0">
@@ -700,8 +704,8 @@ ${r?`<span class="badge ${pt2}">${pt2==='ex'?'🎯 +3':pt2==='ok'?'✓ +1':'✗ 
 </div>`).join('')}
 </div>`}
 <div style="margin-top:28px;padding-top:16px;border-top:1px solid var(--bdr)">
-<div class="adm-tog" onclick="tAdm()">🛡 Réinitialiser le mot de passe d'un joueur (admin) <span style="margin-left:auto">${S.admVis?'▲':'▼'}</span></div>
-${S.admVis?`
+${isAdmin()?`<div class="adm-tog" onclick="tAdm()">🛡 Réinitialiser le mot de passe d'un joueur (admin) <span style="margin-left:auto">${S.admVis?'▲':'▼'}</span></div>`:''}
+${S.admVis&&isAdmin()?`
 <div class="adm-pan">
 <h4>🛡 Réinitialisation admin</h4>
 <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
@@ -719,6 +723,23 @@ ${S.admVis?`
 </div>
 <div id="ame" style="color:var(--red);font-size:.78rem;margin-top:5px"></div>
 ${_adm?'<div style="color:var(--grn);font-size:.78rem;margin-top:5px">✅ Mode admin actif — saisie des scores visible sur chaque match.</div>':''}
+<hr style="border-color:#3a3a6e;margin:12px 0">
+<h4 style="margin-bottom:8px">🗑 Supprimer un compte joueur</h4>
+<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+<input class="fi" id="dup" placeholder="Pseudo à supprimer" style="flex:1;min-width:140px">
+<input class="fi" id="dpin" type="password" placeholder="PIN admin" style="width:100px" maxlength="6">
+<button class="btn-g" style="background:#c0392b" onclick="hDelUser()">🗑 Supprimer</button>
+</div>
+<div id="de" style="font-size:.78rem;margin-bottom:4px"></div>
+<div style="font-size:.72rem;color:var(--muted)">⚠️ Supprime le compte ET tous ses pronostics définitivement.</div>
+<hr style="border-color:#3a3a6e;margin:12px 0">
+<h4 style="margin-bottom:8px">👥 Comptes inscrits</h4>
+<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:4px">
+${Object.keys(LS.gu()).filter(k=>k!==ADMIN_USER).map(k=>`
+<span style="background:#1a1a2e;border:1px solid #3a3a6e;border-radius:6px;padding:4px 10px;font-size:.78rem;display:flex;align-items:center;gap:6px">
+${psd(k)} <span onclick="prefillDel('${k}')" style="cursor:pointer;color:var(--red);font-weight:700;font-size:.9rem">✕</span>
+</span>`).join('')||'<span style="color:var(--muted);font-size:.78rem">Aucun joueur inscrit.</span>'}
+</div>
 <hr style="border-color:#3a3a6e;margin:12px 0">
 <h4 style="margin-bottom:8px">🔑 Changer le PIN admin</h4>
 <div style="display:flex;gap:8px;flex-wrap:wrap">
@@ -752,12 +773,13 @@ function hSavePr(id){
   savePr(id,h,a);toast('Pronostic enregistré ✓');render()
 }
 function hSetRes(id){
+  if(!isAdmin()){toast('Accès refusé.',true);return}
   const h=document.getElementById('rh'+id)?.value;
   const a=document.getElementById('ra'+id)?.value;
   if(h===''||a===''){toast('Score incomplet !',true);return}
   setRes(id,h,a);toast('Score enregistré ✓');render()
 }
-function hDelRes(id){delRes(id);toast('Score supprimé');render()}
+function hDelRes(id){if(!isAdmin()){toast('Accès refusé.',true);return}delRes(id);toast('Score supprimé');render()}
 
 function hCpw(){
   const o=document.getElementById('opw')?.value;
@@ -776,12 +798,31 @@ function hAdmReset(){
   if(r.ok)toast('Mot de passe réinitialisé ✓')
 }
 function hTogAdm(){
+  if(!isAdmin()){toast('Accès refusé.',true);return}
   const pin=document.getElementById('apm')?.value;
   const e=document.getElementById('ame');
   if(pin!==LS.pin()){if(e)e.textContent='PIN incorrect.';return}
   _adm=!_adm;toast(_adm?'🔐 Mode admin activé':'🔓 Mode admin désactivé');render()
 }
-function hChgPin(){
+function hDelUser(){
+  if(!isAdmin()){toast('Accès refusé.',true);return}
+  const pseudo=document.getElementById('dup')?.value.trim().toLowerCase();
+  const pin=document.getElementById('dpin')?.value;
+  const e=document.getElementById('de');
+  if(!pseudo){if(e){e.textContent='Entre un pseudo.';e.style.color='var(--red)'}return}
+  if(pin!==LS.pin()){if(e){e.textContent='PIN incorrect.';e.style.color='var(--red)'}return}
+  if(pseudo===ADMIN_USER){if(e){e.textContent='Impossible de supprimer le compte admin.';e.style.color='var(--red)'}return}
+  const u=LS.gu();
+  if(!u[pseudo]){if(e){e.textContent='Joueur introuvable.';e.style.color='var(--red)'}return}
+  delete u[pseudo];LS.su(u);
+  const p=LS.gp();delete p[pseudo];LS.sp(p);
+  toast('Compte "'+pseudo+'" supprimé 🗑');render()
+}
+function prefillDel(k){
+  S.admVis=true;render();
+  setTimeout(()=>{const i=document.getElementById('dup');if(i)i.value=k},50)
+}
+
   const o=document.getElementById('opin')?.value;
   const n=document.getElementById('npin')?.value;
   const e=document.getElementById('pe');
