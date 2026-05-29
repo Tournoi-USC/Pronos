@@ -649,107 +649,124 @@ function pgGroupes(){
 }).join('')}</div>`;
 }
 
+// ── ADMIN PANEL (fonction séparée pour éviter les template literals imbriqués) ──
+function admPanel(){
+  if(!isAdmin()) return '';
+  var togLabel = S.admVis ? '▲' : '▼';
+  var togBtn = '<div class="adm-tog" onclick="tAdm()">🛡 Panneau admin <span style="margin-left:auto">'+togLabel+'</span></div>';
+  if(!S.admVis) return '<div style="margin-top:28px;padding-top:16px;border-top:1px solid var(--bdr)">'+togBtn+'</div>';
+  var users = Object.keys(LS.gu()).filter(function(k){return k!==ADMIN_USER;});
+  var userTags = users.length === 0
+    ? '<span style="color:var(--muted);font-size:.78rem">Aucun joueur inscrit.</span>'
+    : users.map(function(k){
+        return '<span style="background:#1a1a2e;border:1px solid #3a3a6e;border-radius:6px;padding:4px 10px;font-size:.78rem;display:flex;align-items:center;gap:6px">'
+          + psd(k) + ' <span onclick="prefillDel(\''+k+'\')" style="cursor:pointer;color:var(--red);font-weight:700;font-size:.9rem">✕</span></span>';
+      }).join('');
+  var admStatus = _adm ? '<div style="color:var(--grn);font-size:.78rem;margin-top:5px">✅ Mode admin actif — saisie des scores visible sur chaque match.</div>' : '';
+  var admBtn = (_adm ? '🔓 Désactiver' : '🔐 Activer') + ' le mode admin';
+  var hr = '<hr style="border-color:#3a3a6e;margin:12px 0">';
+  return '<div style="margin-top:28px;padding-top:16px;border-top:1px solid var(--bdr)">'
+    + togBtn
+    + '<div class="adm-pan">'
+    + '<h4>🛡 Réinitialisation admin</h4>'
+    + '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">'
+    + '<input class="fi" id="ap" placeholder="Pseudo du joueur" style="flex:1;min-width:130px">'
+    + '<input class="fi" id="anp" type="password" placeholder="Nouveau mot de passe" style="flex:1;min-width:130px">'
+    + '<input class="fi" id="apin" type="password" placeholder="PIN admin" style="width:100px" maxlength="6">'
+    + '<button class="btn-g" onclick="hAdmReset()">Réinitialiser</button></div>'
+    + '<div id="ae" style="font-size:.78rem;margin-bottom:10px"></div>'
+    + hr
+    + '<h4 style="margin-bottom:8px">⚙️ Mode saisie des scores réels</h4>'
+    + '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'
+    + '<input class="fi" id="apm" type="password" placeholder="PIN admin" style="width:120px">'
+    + '<button class="btn-g" onclick="hTogAdm()">'+admBtn+'</button></div>'
+    + '<div id="ame" style="color:var(--red);font-size:.78rem;margin-top:5px"></div>'
+    + admStatus
+    + hr
+    + '<h4 style="margin-bottom:8px">🗑 Supprimer un compte joueur</h4>'
+    + '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">'
+    + '<input class="fi" id="dup" placeholder="Pseudo à supprimer" style="flex:1;min-width:140px">'
+    + '<input class="fi" id="dpin" type="password" placeholder="PIN admin" style="width:100px" maxlength="6">'
+    + '<button class="btn-g" style="background:#c0392b" onclick="hDelUser()">🗑 Supprimer</button></div>'
+    + '<div id="de" style="font-size:.78rem;margin-bottom:4px"></div>'
+    + '<div style="font-size:.72rem;color:var(--muted)">⚠️ Supprime le compte ET tous ses pronostics définitivement.</div>'
+    + hr
+    + '<h4 style="margin-bottom:8px">👥 Comptes inscrits</h4>'
+    + '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:4px">'+userTags+'</div>'
+    + hr
+    + '<h4 style="margin-bottom:8px">🔑 Changer le PIN admin</h4>'
+    + '<div style="display:flex;gap:8px;flex-wrap:wrap">'
+    + '<input class="fi" id="opin" type="password" placeholder="PIN actuel" style="width:110px">'
+    + '<input class="fi" id="npin" type="password" placeholder="Nouveau PIN" style="width:110px">'
+    + '<button class="btn-g" onclick="hChgPin()">Modifier</button></div>'
+    + '<div id="pe" style="color:var(--red);font-size:.78rem;margin-top:5px"></div>'
+    + '</div></div>';
+}
+
+// ── PRONO LIST (fonction séparée) ─────────────────────────────
+function pronoList(plist, res){
+  if(plist.length === 0){
+    return '<div class="empty">Pas encore de pronostic. <a onclick="go(\'matchs\')" style="color:var(--gold);cursor:pointer;font-weight:700">Pronostiquer \u2192</a></div>';
+  }
+  var rows = plist.map(function(x){
+    var id=x.id, pn=x.pn, mm=x.mm, r=x.r, pt2=x.pt2;
+    var badge = r
+      ? '<span class="badge '+pt2+'">'+(pt2==='ex'?'🎯 +3':pt2==='ok'?'✓ +1':'✗ 0')+'</span>'
+      : '<span style="color:var(--muted);font-size:.72rem">En attente</span>';
+    return '<div class="pli">'
+      + '<span class="pmn">'+(FL[mm.h]||'🏳')+' '+mm.h+' <span style="color:var(--muted)">vs</span> '+mm.a+' '+(FL[mm.a]||'🏳')+'</span>'
+      + '<span class="psc2">'+pn.h+' - '+pn.a+'</span>'
+      + badge
+      + '</div>';
+  }).join('');
+  return '<div class="card" style="padding:0 20px">'+rows+'</div>';
+}
+
 // ── PAGE: PROFIL ─────────────────────────────────────────────
 function pgProfil(){
-  if(!S.user)return`
-<div class="pt">MON PROFIL</div>
-<div style="margin-top:40px;text-align:center">
-<div style="font-size:3rem;margin-bottom:16px">👤</div>
-<p style="color:var(--muted);margin-bottom:20px">Connectez-vous depuis la page Matchs.</p>
-<button class="btn-g" onclick="go('matchs')">Voir les matchs →</button>
-</div>`;
-  const ps=psd(S.user),st=pts(S.user),pr=uPronos(S.user),res=LS.gr();
-  const plist=Object.entries(pr).map(([id,pn])=>{
-    const mm=M.find(m=>m.id==id),r=res[id],pt2=getRes(id)?ptBadge(id,S.user):null;
-    return{id,pn,mm,r,pt2}
-  }).filter(x=>x.mm).sort((a,b)=>a.mm.id-b.mm.id);
-  return`
-<div class="phd">
-  <div class="pi2">
-    <div class="av">👤</div>
-    <div>
-      <div class="pn">${ps.toUpperCase()}</div>
-      <div class="psu">${Object.keys(pr).length} pronostics enregistrés</div>
-    </div>
-  </div>
-  <div class="pac">
-    <button class="btn-o" onclick="tCpw()">🔒 Changer mdp</button>
-    <button class="btn-o" onclick="doLogout()">→ Déconnexion</button>
-  </div>
-</div>
-${S.cpw?`
-<div class="card" style="margin-bottom:20px">
-<h4 style="margin-bottom:12px">🔒 Changer le mot de passe</h4>
-<div style="display:flex;gap:10px;flex-wrap:wrap">
-<input class="fi" id="opw" type="password" placeholder="Ancien mot de passe" style="flex:1;min-width:140px">
-<input class="fi" id="npw" type="password" placeholder="Nouveau mot de passe" style="flex:1;min-width:140px">
-<button class="btn-g" onclick="hCpw()">Modifier</button>
-</div>
-<div id="cpwe" style="color:var(--red);font-size:.78rem;margin-top:5px"></div>
-</div>`:''}
-<div class="psg">
-<div class="psc"><div class="psi">🏆</div><div class="psv">${st.p}</div><div class="psl">Points</div></div>
-<div class="psc"><div class="psi">🎯</div><div class="psv">${st.ex}</div><div class="psl">Scores exacts</div></div>
-<div class="psc"><div class="psi" style="color:var(--grn)">✅</div><div class="psv">${st.ok}</div><div class="psl">Bons résultats</div></div>
-<div class="psc"><div class="psi">⏱</div><div class="psv">${st.pl}</div><div class="psl">Matchs joués</div></div>
-</div>
-<h3 style="font-size:.95rem;font-weight:800;margin-bottom:12px">MES PRONOSTICS</h3>
-${plist.length===0?`<div class="empty">Pas encore de pronostic. <a onclick="go('matchs')" style="color:var(--gold);cursor:pointer;font-weight:700">Pronostiquer →</a></div>`:`
-<div class="card" style="padding:0 20px">
-${plist.map(({id,pn,mm,r,pt2})=>`
-<div class="pli">
-<span class="pmn">${FL[mm.h]||'🏳'} ${mm.h} <span style="color:var(--muted)">vs</span> ${mm.a} ${FL[mm.a]||'🏳'}</span>
-<span class="psc2">${pn.h} - ${pn.a}</span>
-${r?`<span class="badge ${pt2}">${pt2==='ex'?'🎯 +3':pt2==='ok'?'✓ +1':'✗ 0'}</span>`:'<span style="color:var(--muted);font-size:.72rem">En attente</span>'}
-</div>`).join('')}
-</div>`}
-<div style="margin-top:28px;padding-top:16px;border-top:1px solid var(--bdr)">
-${isAdmin()?`<div class="adm-tog" onclick="tAdm()">🛡 Réinitialiser le mot de passe d'un joueur (admin) <span style="margin-left:auto">${S.admVis?'▲':'▼'}</span></div>`:''}
-${S.admVis&&isAdmin()?`
-<div class="adm-pan">
-<h4>🛡 Réinitialisation admin</h4>
-<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
-<input class="fi" id="ap" placeholder="Pseudo du joueur" style="flex:1;min-width:130px">
-<input class="fi" id="anp" type="password" placeholder="Nouveau mot de passe" style="flex:1;min-width:130px">
-<input class="fi" id="apin" type="password" placeholder="PIN admin" style="width:100px" maxlength="6">
-<button class="btn-g" onclick="hAdmReset()">Réinitialiser</button>
-</div>
-<div id="ae" style="font-size:.78rem;margin-bottom:10px"></div>
-<hr style="border-color:#3a3a6e;margin:12px 0">
-<h4 style="margin-bottom:8px">⚙️ Mode saisie des scores réels</h4>
-<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-<input class="fi" id="apm" type="password" placeholder="PIN admin" style="width:120px">
-<button class="btn-g" onclick="hTogAdm()">${_adm?'🔓 Désactiver':'🔐 Activer'} le mode admin</button>
-</div>
-<div id="ame" style="color:var(--red);font-size:.78rem;margin-top:5px"></div>
-${_adm?'<div style="color:var(--grn);font-size:.78rem;margin-top:5px">✅ Mode admin actif — saisie des scores visible sur chaque match.</div>':''}
-<hr style="border-color:#3a3a6e;margin:12px 0">
-<h4 style="margin-bottom:8px">🗑 Supprimer un compte joueur</h4>
-<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
-<input class="fi" id="dup" placeholder="Pseudo à supprimer" style="flex:1;min-width:140px">
-<input class="fi" id="dpin" type="password" placeholder="PIN admin" style="width:100px" maxlength="6">
-<button class="btn-g" style="background:#c0392b" onclick="hDelUser()">🗑 Supprimer</button>
-</div>
-<div id="de" style="font-size:.78rem;margin-bottom:4px"></div>
-<div style="font-size:.72rem;color:var(--muted)">⚠️ Supprime le compte ET tous ses pronostics définitivement.</div>
-<hr style="border-color:#3a3a6e;margin:12px 0">
-<h4 style="margin-bottom:8px">👥 Comptes inscrits</h4>
-<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:4px">
-${Object.keys(LS.gu()).filter(k=>k!==ADMIN_USER).map(k=>`
-<span style="background:#1a1a2e;border:1px solid #3a3a6e;border-radius:6px;padding:4px 10px;font-size:.78rem;display:flex;align-items:center;gap:6px">
-${psd(k)} <span onclick="prefillDel('${k}')" style="cursor:pointer;color:var(--red);font-weight:700;font-size:.9rem">✕</span>
-</span>`).join('')||'<span style="color:var(--muted);font-size:.78rem">Aucun joueur inscrit.</span>'}
-</div>
-<hr style="border-color:#3a3a6e;margin:12px 0">
-<h4 style="margin-bottom:8px">🔑 Changer le PIN admin</h4>
-<div style="display:flex;gap:8px;flex-wrap:wrap">
-<input class="fi" id="opin" type="password" placeholder="PIN actuel" style="width:110px">
-<input class="fi" id="npin" type="password" placeholder="Nouveau PIN" style="width:110px">
-<button class="btn-g" onclick="hChgPin()">Modifier</button>
-</div>
-<div id="pe" style="color:var(--red);font-size:.78rem;margin-top:5px"></div>
-</div>`:''}
-</div>`;
+  if(!S.user){
+    return '<div class="pt">MON PROFIL</div>'
+      + '<div style="margin-top:40px;text-align:center">'
+      + '<div style="font-size:3rem;margin-bottom:16px">👤</div>'
+      + '<p style="color:var(--muted);margin-bottom:20px">Connectez-vous depuis la page Matchs.</p>'
+      + '<button class="btn-g" onclick="go(\'matchs\')">Voir les matchs \u2192</button>'
+      + '</div>';
+  }
+  var ps=psd(S.user), st=pts(S.user), pr=uPronos(S.user), res=LS.gr();
+  var plist=Object.entries(pr).map(function(e){
+    var id=e[0], pn=e[1];
+    var mm=M.find(function(m){return m.id==id;}), r=res[id], pt2=getRes(id)?ptBadge(id,S.user):null;
+    return{id:id,pn:pn,mm:mm,r:r,pt2:pt2};
+  }).filter(function(x){return x.mm;}).sort(function(a,b){return a.mm.id-b.mm.id;});
+
+  var cpwBlock = S.cpw
+    ? '<div class="card" style="margin-bottom:20px">'
+      + '<h4 style="margin-bottom:12px">🔒 Changer le mot de passe</h4>'
+      + '<div style="display:flex;gap:10px;flex-wrap:wrap">'
+      + '<input class="fi" id="opw" type="password" placeholder="Ancien mot de passe" style="flex:1;min-width:140px">'
+      + '<input class="fi" id="npw" type="password" placeholder="Nouveau mot de passe" style="flex:1;min-width:140px">'
+      + '<button class="btn-g" onclick="hCpw()">Modifier</button></div>'
+      + '<div id="cpwe" style="color:var(--red);font-size:.78rem;margin-top:5px"></div></div>'
+    : '';
+
+  return '<div class="phd">'
+    + '<div class="pi2"><div class="av">👤</div>'
+    + '<div><div class="pn">'+ps.toUpperCase()+'</div>'
+    + '<div class="psu">'+Object.keys(pr).length+' pronostics enregistrés</div></div></div>'
+    + '<div class="pac">'
+    + '<button class="btn-o" onclick="tCpw()">🔒 Changer mdp</button>'
+    + '<button class="btn-o" onclick="doLogout()">\u2192 Déconnexion</button>'
+    + '</div></div>'
+    + cpwBlock
+    + '<div class="psg">'
+    + '<div class="psc"><div class="psi">🏆</div><div class="psv">'+st.p+'</div><div class="psl">Points</div></div>'
+    + '<div class="psc"><div class="psi">🎯</div><div class="psv">'+st.ex+'</div><div class="psl">Scores exacts</div></div>'
+    + '<div class="psc"><div class="psi" style="color:var(--grn)">✅</div><div class="psv">'+st.ok+'</div><div class="psl">Bons résultats</div></div>'
+    + '<div class="psc"><div class="psi">⏱</div><div class="psv">'+st.pl+'</div><div class="psl">Matchs joués</div></div>'
+    + '</div>'
+    + '<h3 style="font-size:.95rem;font-weight:800;margin-bottom:12px">MES PRONOSTICS</h3>'
+    + pronoList(plist, res)
+    + admPanel();
 }
 
 // ── HANDLERS ─────────────────────────────────────────────────
