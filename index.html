@@ -830,7 +830,7 @@ function cardMatch(m) {
     var dis=(started&&!adminMode)?' disabled':'';
     var badgeH=ptb==='ex'?'<span class="badge ex">&#127919; +3pts</span>':ptb==='ok'?'<span class="badge ok">&#10003; +1pt</span>':ptb==='no'?'<span class="badge no">&#10007; 0pt</span>':'';
     var saveBtn=started?'':'<button class="psb" onclick="hSavePr('+m.id+')">&#128190; OK</button>';
-    pronoBlock='<div class="pr"><input class="pi" type="number" min="0" max="20" id="ph'+m.id+'" value="'+(pn?pn.h:'')+'" placeholder="?"'+dis+'><span style="color:var(--muted)">-</span><input class="pi" type="number" min="0" max="20" id="pa'+m.id+'" value="'+(pn?pn.a:'')+'" placeholder="?"'+dis+'>'+saveBtn+badgeH+'</div>';
+    pronoBlock='<div class="pr"><input class="pi" type="number" min="0" max="20" id="ph'+m.id+'" value="'+(pn?pn.h:'')+'" placeholder="?"'+dis+'><span style="color:var(--muted)">-</span><input class="pi" type="number" min="0" max="20" id="pa'+m.id+'" value="'+(pn?pn.a:'')+'" placeholder="?"'+dis+'>'+badgeH+'</div>';
     if (started&&!res) pronoBlock+='<div style="font-size:.72rem;color:var(--muted);text-align:center;margin-top:4px">&#128274; Match d&eacute;but&eacute;</div>';
   } else if (!S.user||S.user===ADMIN) {
     pronoBlock='<div style="font-size:.73rem;color:var(--muted);text-align:right;margin-top:8px">&#128274; Connexion requise</div>';
