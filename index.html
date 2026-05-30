@@ -157,6 +157,16 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .save-bar button:active{transform:translateY(0)}
 .save-bar .count{background:rgba(0,0,0,.2);border-radius:6px;padding:2px 8px;font-size:.82rem}
 .save-bar.hidden{display:none}
+
+.cd{font-size:.7rem;font-weight:700;padding:2px 7px;border-radius:4px;display:inline-flex;align-items:center;gap:3px}
+.cd.hot{background:rgba(239,68,68,.15);color:#f87171}
+.cd.warm{background:rgba(245,166,35,.15);color:#f5a623}
+.cd.ok{background:rgba(34,197,94,.12);color:#4ade80}
+.nav-badge{background:var(--red);color:#fff;font-size:.62rem;font-weight:800;padding:1px 5px;border-radius:8px;margin-left:4px;vertical-align:middle}
+.qf{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.qfb{padding:6px 12px;border-radius:6px;border:1px solid var(--bdr);background:var(--card);color:var(--muted);cursor:pointer;font-size:.75rem;font-weight:600}
+.qfb.on{background:rgba(245,166,35,.15);color:var(--gold);border-color:var(--gold)}
+.notif-bar{background:rgba(99,102,241,.1);border:1px solid rgba(99,102,241,.25);border-radius:10px;padding:11px 16px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
 </style>
 </head>
 <body>
@@ -328,7 +338,7 @@ var EMERGENCY_CODE = 'CDM2026RESCUE';
 /* ═══════════════════════════════════════════════
    ÉTAT APPLICATION
 ═══════════════════════════════════════════════ */
-var S = {user:null, page:'accueil', tab:'POULES', grp:'ALL', cpw:false, adm:false};
+var S = {user:null, page:'accueil', tab:'POULES', grp:'ALL', cpw:false, adm:false, qf:'all'};
 var adminMode = false;
 var logoClicks = 0, logoTimer = null;
 var syncTimer = null;
@@ -419,7 +429,14 @@ function setupRealtime() {
         delete DB.results[payload.old.match_id];
       } else {
         DB.results[payload.new.match_id] = {h: payload.new.home_score, a: payload.new.away_score};
-        if (!isAdmin()) toast('Score mis \u00e0 jour en direct ! \u26a1', 'ok');
+        if (!isAdmin()) {
+        toast('Score mis \u00e0 jour en direct ! \u26a1', 'ok');
+        if (notifStatus() === 'granted') {
+          var rm = M.find(function(x){return x.id===payload.new.match_id;});
+          var rtitle = rm ? rm.h + ' ' + payload.new.home_score + ' - ' + payload.new.away_score + ' ' + rm.a : 'Nouveau score !';
+          try { new Notification('Prono CDM 26 &#127942;', {body: rtitle, icon: './manifest.json'}); } catch(e){}
+        }
+      }
       }
       render();
     })
@@ -660,7 +677,9 @@ function renderNav() {
   var h = '';
   for (var i=0; i<items.length; i++) {
     var it = items[i];
-    h += '<div class="ni'+(S.page===it.p?' on':'')+'" onclick="go(\''+it.p+'\')"><span>'+it.ic+'</span> <span>'+it.lb+'</span></div>';
+    var nb2=(it.p==='matchs'&&S.user&&S.user!==ADMIN)?pendingCount():0;
+    var nb2H=nb2>0?'<span class="nav-badge">'+nb2+'</span>':'';
+    h += '<div class="ni'+(S.page===it.p?' on':'')+'" onclick="go(\''+it.p+'\')"><span>'+it.ic+'</span> <span>'+it.lb+'</span>'+nb2H+'</div>';
   }
   document.getElementById('snav').innerHTML = h;
 }
@@ -758,7 +777,30 @@ function pgMatchs() {
   if(S.user&&S.user!==ADMIN){
     saveBar='<div class="save-bar" id="save-bar"><button onclick="hSaveAll()">&#128190; <span>Sauvegarder tous mes pronostics</span> <span class="count" id="prono-count">0 saisi(s)</span></button></div>';
   }
-  return '<div class="pt">LES MATCHS</div><p class="psub">Tous les 104 matchs &middot; Saisissez votre pronostic directement sur chaque carte.</p>'+banner+tabsH+grpH+'<div class="mg">'+cards+'</div>'+saveBar;
+  var qfH = '';
+  if (S.user && S.user !== ADMIN) {
+    var pc = pendingCount();
+    qfH = '<div class="qf">'
+      + '<button class="qfb'+(S.qf==='all'?' on':'')+'" onclick="setQF(&apos;all&apos;)">Tous les matchs</button>'
+      + '<button class="qfb'+(S.qf==='open'?' on':'')+'" onclick="setQF(&apos;open&apos;)">&#128274; Sans prono ('+pc+')</button>'
+      + '<button class="qfb'+(S.qf==='done'?' on':'')+'" onclick="setQF(&apos;done&apos;)">&#10003; Déjà saisis</button>'
+      + '</div>';
+    if (S.qf !== 'all') {
+      var pr2 = uPronos(S.user);
+      filtered = filtered.filter(function(m) {
+        var hasPr = !!pr2[m.id];
+        var isOpen = new Date() < new Date(m.dt + 'T' + m.ti);
+        if (S.qf === 'open') return isOpen && !hasPr;
+        if (S.qf === 'done') return hasPr;
+        return true;
+      });
+    }
+  }
+  var notifH = '';
+  if (S.user && S.user !== ADMIN && notifSupported() && notifStatus() === 'default') {
+    notifH = '<div class="notif-bar"><p>&#128276; Recevez une notification dès qu&apos;un score tombe, même navigateur fermé</p><button class="btn-g" style="padding:7px 14px;font-size:.8rem" onclick="requestNotif()">Activer</button></div>';
+  }
+  return '<div class="pt">LES MATCHS</div><p class="psub">Tous les 104 matchs &middot; Saisissez votre pronostic directement sur chaque carte.</p>'+notifH+banner+tabsH+grpH+qfH+'<div class="mg">'+ cards+'</div>'+saveBar;
 }
 function cardMatch(m) {
   var res=getRes(m.id), pr=S.user?uPronos(S.user):{}, pn=pr[m.id]||null;
@@ -785,7 +827,7 @@ function cardMatch(m) {
    +'<div class="mh"><span class="mtag">Match #'+m.id+(m.gr?' &middot; Grp '+m.gr:'')+'</span><span class="ms'+(res?' fin':'')+'">'+(res?'TERMIN&Eacute;':'&Agrave; VENIR')+'</span></div>'
    +'<div class="mteams"><div class="team"><span class="tf">'+flag(m.h)+'</span><div class="tn">'+m.h+'</div></div><div style="text-align:center">'+scoreBlock+'</div><div class="team" style="text-align:right"><span class="tf">'+flag(m.a)+'</span><div class="tn">'+m.a+'</div></div></div>'
    +pronoBlock+adminBlock
-   +'<div class="mf2"><span>&#128197; '+dateStr+' &middot; &#128205; '+m.v+'</span>'+(tvTag(m.id)?'<span>'+tvTag(m.id)+'</span>':'')+'</div>'
+   +'<div class="mf2"><span>&#128197; '+dateStr+' &middot; &#128205; '+m.v+'</span><span>'+(tvTag(m.id)?tvTag(m.id)+' ':'')+countdown(m.dt,m.ti)+'</span></div>'
    +'</div>';
 }
 
@@ -954,8 +996,41 @@ function updatePronoCount(){
   cnt.textContent=n+' saisi(s)';
 }
 
-function setTab(t) { S.tab=t; S.grp='ALL'; render(); }
-function setGrp(g) { S.grp=g; render(); }
+
+function countdown(dt, ti) {
+  var kickoff = new Date(dt + 'T' + ti);
+  var diff = kickoff - new Date();
+  if (diff <= 0) return '';
+  var h = Math.floor(diff / 3600000);
+  var m = Math.floor((diff % 3600000) / 60000);
+  var cls = h < 2 ? 'hot' : h < 12 ? 'warm' : 'ok';
+  var label = h === 0 ? m + 'min' : h < 24 ? h + 'h' + (m > 0 ? m + 'min' : '') : Math.floor(h / 24) + 'j';
+  return '<span class="cd ' + cls + '">&#9201; ' + label + '</span>';
+}
+function pendingCount() {
+  if (!S.user || S.user === ADMIN) return 0;
+  var pr = uPronos(S.user), n = 0;
+  for (var i = 0; i < M.length; i++) {
+    var m = M[i];
+    if (new Date() < new Date(m.dt + 'T' + m.ti) && !pr[m.id]) n++;
+  }
+  return n;
+}
+function notifSupported() { return 'Notification' in window && 'serviceWorker' in navigator; }
+async function requestNotif() {
+  if (!notifSupported()) { toast('Notifications non support\u00e9es', 'err'); return; }
+  var p = await Notification.requestPermission();
+  if (p === 'granted') { toast('Notifications activ\u00e9es \u2713'); render(); }
+  else { toast('Notifications refus\u00e9es', 'err'); }
+}
+function notifStatus() {
+  if (!notifSupported()) return 'unsupported';
+  return Notification.permission;
+}
+
+function setQF(f){ S.qf=f; render(); }
+function setTab(t) { S.tab=t; S.grp='ALL'; S.qf='all'; render(); }
+function setGrp(g) { S.grp=g; S.qf='all'; render(); }
 function tCpw() { S.cpw=!S.cpw; render(); }
 function tAdm() { S.adm=!S.adm; render(); }
 
