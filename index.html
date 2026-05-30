@@ -390,16 +390,27 @@ function initSB() {
 async function loadAll() {
   if (!sb) return;
   try {
-    var r = await Promise.all([
-      sb.from('users').select('*'),
-      sb.from('pronos').select('*'),
-      sb.from('results').select('*'),
-      sb.from('config').select('*')
-    ]);
-    var users = r[0].data || [];
-    var pronos = r[1].data || [];
-    var results = r[2].data || [];
-    var config = r[3].data || [];
+    var uq = sb.from('users').select('*');
+    if (GROUP_ID && !isAdmin()) uq = uq.eq('group_id', GROUP_ID);
+    var rU = await uq;
+    var rP = await sb.from('pronos').select('*');
+    var rR = await sb.from('results').select('*');
+    var rC = await sb.from('config').select('*');
+    var rG = await sb.from('groups').select('*').order('created_at');
+    if (rU.error) console.warn('users:', rU.error.message);
+    if (rP.error) console.warn('pronos:', rP.error.message);
+    if (rR.error) console.warn('results:', rR.error.message);
+    if (rC.error) console.warn('config:', rC.error.message);
+    if (rG.error) console.warn('groups (may not exist yet):', rG.error.message);
+    var users  = rU.data || [];
+    var pronos = rP.data || [];
+    var results= rR.data || [];
+    var config = rC.data || [];
+    DB.groups  = rG.data || [];
+    if (GROUP_ID && !isAdmin()) {
+      var gids = users.map(function(u){return u.id;});
+      pronos = pronos.filter(function(p){return gids.indexOf(p.user_id)>-1;});
+    }
     DB.users = users;
     DB.userMap = {};
     for (var i=0; i<users.length; i++) DB.userMap[users[i].pseudo_key] = users[i];
@@ -704,7 +715,14 @@ function renderNav() {
   if(chip) chip.textContent=currentGroupName()?'&#128101; '+currentGroupName():'';
 
 }
-function render() { renderNav(); var pages={accueil:pgAccueil,matchs:pgMatchs,classement:pgClass,groupes:pgGroupes,profil:pgProfil}; document.getElementById('main').innerHTML=(pages[S.page]||pgAccueil)(); }
+function render() {
+  renderNav();
+  if (!GROUP_ID && !isAdmin() && S.user && S.user!==ADMIN && sb && S.page!=='profil') {
+    document.getElementById('main').innerHTML=pgNoGroup(); return;
+  }
+  var pages={accueil:pgAccueil,matchs:pgMatchs,classement:pgClass,groupes:pgGroupes,profil:pgProfil};
+  document.getElementById('main').innerHTML=(pages[S.page]||pgAccueil)();
+}
 
 /* ═══════════════════════════════════════════════
    PAGE : SETUP (Supabase non configuré)
@@ -1202,10 +1220,15 @@ if('serviceWorker' in navigator){
 async function init() {
   document.getElementById('main').innerHTML='<div class="loading-wrap"><div class="spinner"></div></div>';
   if (!initSB()) { render(); return; }
-  await loadAll();
+  try {
+    await loadAll();
+  } catch(e) {
+    console.error('loadAll error:', e);
+    toast('Erreur de chargement: ' + e.message, 'err');
+  }
   var ses=localStorage.getItem('cdm_ses');
   if(ses&&DB.userMap[ses]) S.user=ses;
-  setupRealtime();
+  try { setupRealtime(); } catch(e) { console.warn('Realtime error:', e); }
   startAutoSync();
   render();
 }
@@ -1213,4 +1236,30 @@ init();
 
 </script>
 </body>
-</html>
+</html>function pgNoGroup() {
+  var glist = '';
+  if (DB.groups.length > 0) {
+    glist = '<div style="display:flex;flex-direction:column;gap:10px;margin-top:20px">';
+    for (var i=0;i<DB.groups.length;i++) {
+      var g=DB.groups[i];
+      glist += '<a href="'+groupUrl(g.id)+'" style="display:flex;align-items:center;justify-content:space-between;background:var(--card);border:1px solid var(--bdr);border-radius:10px;padding:14px 18px;text-decoration:none;color:var(--txt)">'
+        + '<span style="font-weight:700">&#128101; '+g.name+'</span>'
+        + '<span style="color:var(--gold);font-size:.85rem">Rejoindre &#8594;</span></a>';
+    }
+    glist += '</div>';
+  } else {
+    glist = '<p style="color:var(--muted);margin-top:16px">Aucun groupe cr\u00e9\u00e9.<br>Demandez \u00e0 l\u0027admin de cr\u00e9er votre groupe.</p>';
+  }
+  var logoutBtn = S.user && S.user !== ADMIN
+    ? '<div style="margin-top:20px"><button onclick="doLogout()" style="padding:8px 18px;background:transparent;border:1px solid var(--bdr);border-radius:8px;color:var(--muted);cursor:pointer;font-size:.82rem">\u2192 D\u00e9connexion ('+psd(S.user)+')</button></div>'
+    : '';
+  return '<div style="max-width:480px;margin:60px auto;text-align:center">'
+    + '<div style="font-size:3rem;margin-bottom:16px">&#127942;</div>'
+    + '<h1 style="font-size:1.8rem;font-weight:900;margin-bottom:8px">PRONO CDM 26</h1>'
+    + '<p style="color:var(--muted);margin-bottom:4px">Choisissez votre groupe pour acc\u00e9der \u00e0 vos pronostics.</p>'
+    + glist
+    + '<p style="color:var(--muted);font-size:.75rem;margin-top:24px">Admin ? <a onclick="go(\'profil\')" style="color:var(--gold);cursor:pointer">Connectez-vous ici</a></p>'
+    + logoutBtn
+    + '</div>';
+}
+
