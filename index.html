@@ -358,12 +358,29 @@ var DB = {
    SUPABASE CLIENT
 ═══════════════════════════════════════════════ */
 var sb = null;
+var SB_ERROR = '';
 function initSB() {
-  if (SUPABASE_URL === 'VOTRE_URL_SUPABASE' || !SUPABASE_URL || !SUPABASE_KEY) return false;
+  if (SUPABASE_URL === 'VOTRE_URL_SUPABASE' || !SUPABASE_URL) {
+    SB_ERROR = 'URL Supabase non configurée';
+    return false;
+  }
+  if (!SUPABASE_KEY || SUPABASE_KEY === 'VOTRE_CLE_ANON') {
+    SB_ERROR = 'Clé API Supabase non configurée';
+    return false;
+  }
+  if (typeof supabase === 'undefined' || typeof supabase.createClient !== 'function') {
+    SB_ERROR = 'Bibliothèque Supabase non chargée (problème réseau ou CDN)';
+    return false;
+  }
   try {
     sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    SB_ERROR = '';
     return true;
-  } catch(e) { return false; }
+  } catch(e) {
+    SB_ERROR = 'Erreur initialisation: ' + e.message;
+    console.error('Supabase init error:', e);
+    return false;
+  }
 }
 
 /* ═══════════════════════════════════════════════
