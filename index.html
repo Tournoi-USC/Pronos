@@ -326,8 +326,8 @@ var M=[
 /* ═══════════════════════════════════════════════
    CONFIGURATION — modifier ces 2 lignes
 ═══════════════════════════════════════════════ */
-var SUPABASE_URL = 'https://rkbrrndpajczwrhpjoaw.supabase.co';
-var SUPABASE_KEY = 'sb_publishable_vcRpMaKi9Ocqv0evibJ54w_eX6f3Ts8';
+var SUPABASE_URL = 'VOTRE_URL_SUPABASE';
+var SUPABASE_KEY = 'VOTRE_CLE_ANON';
 
 /* ═══════════════════════════════════════════════
    CONSTANTES
@@ -829,7 +829,7 @@ function cardMatch(m) {
   if (S.user&&S.user!==ADMIN) {
     var dis=(started&&!adminMode)?' disabled':'';
     var badgeH=ptb==='ex'?'<span class="badge ex">&#127919; +3pts</span>':ptb==='ok'?'<span class="badge ok">&#10003; +1pt</span>':ptb==='no'?'<span class="badge no">&#10007; 0pt</span>':'';
-    var saveBtn=started?'':'<button class="psb" onclick="hSavePr('+m.id+')">&#128190; OK</button>';
+    var saveBtn='';
     pronoBlock='<div class="pr"><input class="pi" type="number" min="0" max="20" id="ph'+m.id+'" value="'+(pn?pn.h:'')+'" placeholder="?"'+dis+'><span style="color:var(--muted)">-</span><input class="pi" type="number" min="0" max="20" id="pa'+m.id+'" value="'+(pn?pn.a:'')+'" placeholder="?"'+dis+'>'+badgeH+'</div>';
     if (started&&!res) pronoBlock+='<div style="font-size:.72rem;color:var(--muted);text-align:center;margin-top:4px">&#128274; Match d&eacute;but&eacute;</div>';
   } else if (!S.user||S.user===ADMIN) {
