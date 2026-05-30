@@ -150,6 +150,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   .lf{flex-direction:column}
   .htitle{font-size:2rem}
 }
+
+.save-bar{position:sticky;bottom:16px;z-index:50;display:flex;justify-content:center;margin:20px 0 0;pointer-events:none}
+.save-bar button{pointer-events:all;padding:13px 32px;background:var(--gold);color:#000;border:none;border-radius:12px;font-weight:800;font-size:1rem;cursor:pointer;box-shadow:0 4px 24px rgba(245,166,35,.4);transition:transform .1s,box-shadow .1s;display:flex;align-items:center;gap:8px}
+.save-bar button:hover{transform:translateY(-2px);box-shadow:0 6px 30px rgba(245,166,35,.5)}
+.save-bar button:active{transform:translateY(0)}
+.save-bar .count{background:rgba(0,0,0,.2);border-radius:6px;padding:2px 8px;font-size:.82rem}
+.save-bar.hidden{display:none}
 </style>
 </head>
 <body>
@@ -309,8 +316,8 @@ var M=[
 /* ═══════════════════════════════════════════════
    CONFIGURATION — modifier ces 2 lignes
 ═══════════════════════════════════════════════ */
-var SUPABASE_URL = 'https://rkbrrndpajczwrhpjoaw.supabase.co';
-var SUPABASE_KEY = 'sb_publishable_vcRpMaKi9Ocqv0evibJ54w_eX6f3Ts8';
+var SUPABASE_URL = 'VOTRE_URL_SUPABASE';
+var SUPABASE_KEY = 'VOTRE_CLE_ANON';
 
 /* ═══════════════════════════════════════════════
    CONSTANTES
@@ -747,7 +754,11 @@ function pgMatchs() {
     grpH+='</div>';
   }
   var cards=''; for(var ci=0;ci<filtered.length;ci++) cards+=cardMatch(filtered[ci]);
-  return '<div class="pt">LES MATCHS</div><p class="psub">Tous les 104 matchs &middot; Saisissez votre pronostic directement sur chaque carte.</p>'+banner+tabsH+grpH+'<div class="mg">'+cards+'</div>';
+  var saveBar='';
+  if(S.user&&S.user!==ADMIN){
+    saveBar='<div class="save-bar" id="save-bar"><button onclick="hSaveAll()">&#128190; <span>Sauvegarder tous mes pronostics</span> <span class="count" id="prono-count">0 saisi(s)</span></button></div>';
+  }
+  return '<div class="pt">LES MATCHS</div><p class="psub">Tous les 104 matchs &middot; Saisissez votre pronostic directement sur chaque carte.</p>'+banner+tabsH+grpH+'<div class="mg">'+cards+'</div>'+saveBar;
 }
 function cardMatch(m) {
   var res=getRes(m.id), pr=S.user?uPronos(S.user):{}, pn=pr[m.id]||null;
@@ -908,6 +919,41 @@ function buildAdminPanel() {
 /* ═══════════════════════════════════════════════
    HANDLERS
 ═══════════════════════════════════════════════ */
+
+async function hSaveAll(){
+  if(!S.user||S.user===ADMIN||!sb) return;
+  var uid=DB.userMap[S.user].id, records=[], saved=0;
+  for(var mi=0;mi<M.length;mi++){
+    var m=M[mi];
+    var hEl=document.getElementById('ph'+m.id);
+    var aEl=document.getElementById('pa'+m.id);
+    if(!hEl||!aEl) continue;
+    var hv=hEl.value, av=aEl.value;
+    if(hv===''||av==='') continue;
+    records.push({user_id:uid,match_id:m.id,home_score:+hv,away_score:+av,updated_at:new Date().toISOString()});
+    if(!DB.pronos[S.user]) DB.pronos[S.user]={};
+    DB.pronos[S.user][m.id]={h:+hv,a:+av};
+    saved++;
+  }
+  if(!records.length){ toast('Aucun pronostic à sauvegarder','info'); return; }
+  var btn=document.querySelector('.save-bar button');
+  if(btn){btn.disabled=true;btn.innerHTML='&#9203; Sauvegarde en cours...';}
+  var r=await sb.from('pronos').upsert(records,{onConflict:'user_id,match_id'});
+  if(r.error){ toast('Erreur: '+r.error.message,'err'); }
+  else { toast(saved+' pronostic(s) sauvegardé(s) ✓'); render(); }
+}
+
+function updatePronoCount(){
+  var cnt=document.getElementById('prono-count'); if(!cnt) return;
+  var n=0;
+  for(var mi=0;mi<M.length;mi++){
+    var hEl=document.getElementById('ph'+M[mi].id);
+    var aEl=document.getElementById('pa'+M[mi].id);
+    if(hEl&&aEl&&hEl.value!==''&&aEl.value!=='') n++;
+  }
+  cnt.textContent=n+' saisi(s)';
+}
+
 function setTab(t) { S.tab=t; S.grp='ALL'; render(); }
 function setGrp(g) { S.grp=g; render(); }
 function tCpw() { S.cpw=!S.cpw; render(); }
@@ -995,6 +1041,9 @@ async function doEmergency() {
 /* ═══════════════════════════════════════════════
    EVENTS
 ═══════════════════════════════════════════════ */
+document.addEventListener('input',function(e){
+  if(e.target.classList.contains('pi')) updatePronoCount();
+});
 document.addEventListener('click',function(e){
   if(e.target.classList.contains('xbtn')){
     var k=e.target.getAttribute('data-k'),inp=document.getElementById('dup');
