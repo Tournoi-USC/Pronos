@@ -175,6 +175,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 <div class="ov" id="ov"></div>
 <nav class="sb" id="sb">
   <div class="sb-logo" onclick="logoClick()">&#127942; <span>PRONO CDM 26</span></div>
+  <div id="grp-chip" style="padding:4px 20px 8px;font-size:.72rem;color:var(--gold);opacity:.8"></div>
   <div class="sb-nav" id="snav"></div>
 </nav>
 <main class="main" id="main"></main>
@@ -699,6 +700,9 @@ function renderNav() {
     h += '<div class="ni'+(S.page===it.p?' on':'')+'" onclick="go(\''+it.p+'\')"><span>'+it.ic+'</span> <span>'+it.lb+'</span>'+nb2H+'</div>';
   }
   document.getElementById('snav').innerHTML = h;
+  var chip=document.getElementById('grp-chip');
+  if(chip) chip.textContent=currentGroupName()?'&#128101; '+currentGroupName():'';
+
 }
 function render() { renderNav(); var pages={accueil:pgAccueil,matchs:pgMatchs,classement:pgClass,groupes:pgGroupes,profil:pgProfil}; document.getElementById('main').innerHTML=(pages[S.page]||pgAccueil)(); }
 
@@ -736,7 +740,7 @@ function pgAccueil() {
   var syncStatus = '';
   if (pending > 0 && isAdmin()) syncStatus = '<div style="margin-top:8px;padding:8px 12px;background:rgba(245,166,35,.1);border:1px solid var(--gold);border-radius:8px;font-size:.78rem">&#9889; '+pending+' match(s) en attente de score &mdash; <span onclick="autoFetch(false)" style="cursor:pointer;text-decoration:underline">Synchroniser maintenant</span></div>';
   var h = '<div class="htag">&#127942; COUPE DU MONDE 2026</div>'
-   +'<div class="htitle">&Agrave; VOS PRONOS&nbsp;!</div>'
+   +'<div class="htitle">&Agrave; VOS PRONOS&nbsp;!</div>'+(currentGroupName()?'<div style="margin-top:10px;display:inline-flex;align-items:center;gap:6px;background:rgba(245,166,35,.15);border:1px solid rgba(245,166,35,.4);border-radius:20px;padding:4px 14px;font-size:.8rem;font-weight:700;color:var(--gold)">&#128101; Groupe : '+currentGroupName()+'</div>':'')
    +'<p class="hsub">La comp&eacute;tition fait rage. Ne manquez aucun match, marquez des points et hissez-vous au sommet du classement.</p>'
    +syncStatus
    +'<div class="sg">'
@@ -946,7 +950,7 @@ function buildAdminPanel() {
   if (!userTagsH) userTagsH='<span style="color:var(--muted);font-size:.78rem">Aucun joueur inscrit.</span>';
   h+='<div class="adm-pan">'
   /* Saisie scores */
-  +'<h4 style="margin-bottom:8px">&#9881; Mode saisie des scores r\u00e9els</h4>'
+  +'<h4 style="margin-bottom:8px">&#128101; Gestion des groupes</h4>'+'<p style="font-size:.75rem;color:var(--muted);margin-bottom:10px;line-height:1.5">Chaque groupe a son propre classement. Partagez l\'URL à chaque groupe.</p>'+(function(){var gh='<div style="display:flex;flex-direction:column;gap:8px;margin-bottom:10px">';for(var gi=0;gi<DB.groups.length;gi++){var gg=DB.groups[gi];var gurl=window.location.origin+window.location.pathname+'?g='+gg.id;var gcnt=DB.users.filter(function(u){return u.group_id===gg.id&&u.pseudo_key!==ADMIN;}).length;gh+='<div style="background:var(--bg);border:1px solid var(--bdr);border-radius:8px;padding:10px 14px">';gh+='<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">';gh+='<div><strong>&#128101; '+gg.name+'</strong> <span style="color:var(--muted);font-size:.72rem">('+gcnt+' joueur(s))</span></div>';gh+='<div style="display:flex;gap:6px">';gh+='<button class="rsb" onclick="hCopyUrl(\''+gurl+'\')" style="background:#1a2e1a;color:var(--grn)">&#128279; URL</button>';gh+='<button class="rsb" onclick="hDelGroup(\''+gg.id+'\')" style="color:var(--red)">&#128465;</button></div></div>';gh+='<div style="font-size:.7rem;color:var(--muted);margin-top:3px;word-break:break-all">'+gurl+'</div>';gh+='</div>';}if(!DB.groups.length)gh+='<p style="color:var(--muted);font-size:.8rem">Aucun groupe pour l\'instant.</p>';gh+='</div>'; return gh;})()+'<div style="display:flex;gap:8px;margin-bottom:6px;flex-wrap:wrap">'+'<input class="fi" id="new-grp" placeholder="Nom du groupe (ex: Famille)" style="flex:1;min-width:160px">'+'<button class="btn-g" onclick="hCreateGroup()">+ Créer</button></div>'+'<div id="grpe" style="font-size:.78rem;margin-bottom:4px"></div>'+'<hr class="hr2">'+'<h4 style="margin-bottom:8px">&#9881; Mode saisie des scores r\u00e9els</h4>'
   +'<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px"><input class="fi" id="apm" type="password" placeholder="PIN admin" style="width:120px"><button class="btn-g" onclick="hTogAdm()">'+admBtnLbl+'</button></div>'
   +'<div id="ame" style="color:var(--red);font-size:.78rem"></div>'+admStatusH+'<hr class="hr2">'
   /* Auto-sync */
@@ -1043,6 +1047,35 @@ async function requestNotif() {
 function notifStatus() {
   if (!notifSupported()) return 'unsupported';
   return Notification.permission;
+}
+
+
+async function hCreateGroup() {
+  var name = gv('new-grp').trim();
+  var e = document.getElementById('grpe');
+  if (!name) { if(e){e.textContent='Entrez un nom.';e.style.color='var(--red)';} return; }
+  var r = await createGroup(name);
+  if (r.ok) {
+    toast('Groupe "'+r.group.name+'" cr\u00e9\u00e9 \u2713');
+    var inp = document.getElementById('new-grp');
+    if(inp) inp.value='';
+    if(e){e.textContent='';} 
+    render();
+  } else {
+    if(e){e.textContent=r.msg;e.style.color='var(--red)';}
+  }
+}
+async function hDelGroup(gid) {
+  if (!confirm('Supprimer ce groupe ? Les joueurs du groupe seront d\u00e9tach\u00e9s (leurs pronos resteront).')) return;
+  await deleteGroup(gid);
+  toast('Groupe supprim\u00e9'); render();
+}
+function hCopyUrl(url) {
+  navigator.clipboard.writeText(url).then(function(){
+    toast('URL copi\u00e9e dans le presse-papiers \u2713');
+  }).catch(function(){
+    prompt('Copiez cette URL :', url);
+  });
 }
 
 function setQF(f){ S.qf=f; render(); }
