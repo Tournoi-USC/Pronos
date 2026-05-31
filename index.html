@@ -631,9 +631,14 @@ function initSB() {
 async function loadAll() {
   if (!sb) return;
   try {
-    var uq = sb.from('users').select('*');
-    if (GROUP_ID && !isAdmin()) uq = uq.eq('group_id', GROUP_ID);
-    var rU = await uq;
+    // Toujours charger admin + users du groupe actif
+    var rU, rUg = null;
+    if (GROUP_ID) {
+      rU  = await sb.from('users').select('*').eq('pseudo_key', ADMIN);
+      rUg = await sb.from('users').select('*').eq('group_id', GROUP_ID);
+    } else {
+      rU = await sb.from('users').select('*');
+    }
     var rP = await sb.from('pronos').select('*');
     var rR = await sb.from('results').select('*');
     var rC = await sb.from('config').select('*');
@@ -643,7 +648,13 @@ async function loadAll() {
     if (rR.error) console.warn('results:', rR.error.message);
     if (rC.error) console.warn('config:', rC.error.message);
     if (rG.error) console.warn('groups (may not exist yet):', rG.error.message);
-    var users  = rU.data || [];
+    var users = rU.data || [];
+    if (rUg && rUg.data) {
+      // Merge: admin + group users (deduplicate)
+      var seen = {};
+      users.forEach(function(u){ seen[u.id]=true; });
+      rUg.data.forEach(function(u){ if(!seen[u.id]) users.push(u); });
+    }
     var pronos = rP.data || [];
     var results= rR.data || [];
     var config = rC.data || [];
@@ -736,7 +747,8 @@ async function doLogin(pseudo, pw) {
   if (existing) {
     if (existing.hash !== h) return {ok:false, msg:'Mot de passe incorrect.'};
   } else {
-    var r = await sb.from('users').insert({pseudo_key:k, pseudo_display:pseudo.trim(), hash:h}).select().single();
+    var gid=(k===ADMIN)?null:GROUP_ID;
+    var r = await sb.from('users').insert({pseudo_key:k, pseudo_display:pseudo.trim(), hash:h, group_id:gid}).select().single();
     if (r.error) return {ok:false, msg:'Erreur: '+r.error.message};
     DB.users.push(r.data); DB.userMap[k] = r.data; DB.pronos[k] = {};
   }
