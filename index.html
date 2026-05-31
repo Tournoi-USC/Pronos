@@ -21,8 +21,8 @@
   }
   if(reset){
     var cleanUrl = location.pathname + (location.search.replace(/[?&]?reset=1/,'') || '');
-    console.log('Cache cleared, reloading...');
-    setTimeout(function(){ location.replace(cleanUrl); }, 300);
+    history.replaceState(null,'', cleanUrl || location.pathname);
+    console.log('Cache et SW supprimés.');
   }
 })();
 </script>
@@ -729,27 +729,20 @@ async function reloadPronos() {
 ═══════════════════════════════════════════════ */
 function setupRealtime() {
   if (!sb) return;
-  sb.channel('db-live')
-    .on('postgres_changes', {event:'*', schema:'public', table:'results'}, function(payload) {
-      if (payload.eventType === 'DELETE') {
-        delete DB.results[payload.old.match_id];
-      } else {
-        DB.results[payload.new.match_id] = {h: payload.new.home_score, a: payload.new.away_score};
-        if (!isAdmin()) {
-        toast('Score mis \u00e0 jour en direct ! \u26a1', 'ok');
-        if (notifStatus() === 'granted') {
-          var rm = M.find(function(x){return x.id===payload.new.match_id;});
-          var rtitle = rm ? rm.h + ' ' + payload.new.home_score + ' - ' + payload.new.away_score + ' ' + rm.a : 'Nouveau score !';
-          try { new Notification('Prono CDM 26 &#127942;', {body: rtitle, icon: './manifest.json'}); } catch(e){}
-        }
-      }
-      }
-      render();
-    })
-    .on('postgres_changes', {event:'INSERT', schema:'public', table:'pronos'}, function() {
-      reloadPronos().then(function() { if (S.page === 'classement') render(); });
-    })
-    .subscribe();
+  try {
+    sb.channel('db-live')
+      .on('postgres_changes', {event:'*', schema:'public', table:'results'}, function(payload) {
+        setTimeout(function() {
+          if (payload.eventType === 'DELETE') { delete DB.results[payload.old.match_id]; }
+          else { DB.results[payload.new.match_id] = {h:payload.new.home_score, a:payload.new.away_score}; if(!isAdmin()) toast('Score mis à jour ! ⚡'); }
+          render();
+        }, 0);
+      })
+      .on('postgres_changes', {event:'*', schema:'public', table:'pronos'}, function() {
+        setTimeout(function() { reloadPronos().then(function(){ if(S.page==='classement'||S.page==='accueil') render(); }); }, 0);
+      })
+      .subscribe();
+  } catch(e) { console.warn('Realtime non disponible:', e.message); }
 }
 
 /* ═══════════════════════════════════════════════
@@ -993,12 +986,18 @@ function renderNav() {
 
 }
 function render() {
-  renderNav();
-  if (!GROUP_ID && !isAdmin() && S.user && S.user!==ADMIN && sb && S.page!=='profil') {
-    document.getElementById('main').innerHTML=pgNoGroup(); return;
+  try {
+    renderNav();
+    if (!GROUP_ID && !isAdmin() && S.user && S.user!==ADMIN && sb && S.page!=='profil') {
+      document.getElementById('main').innerHTML=pgNoGroup(); return;
+    }
+    var pages={accueil:pgAccueil,matchs:pgMatchs,classement:pgClass,groupes:pgGroupes,profil:pgProfil};
+    var fn = pages[S.page] || pgAccueil;
+    document.getElementById('main').innerHTML = fn();
+  } catch(e) {
+    console.error('render() error:', e);
+    document.getElementById('main').innerHTML = '<div style="padding:40px;color:var(--red)"><strong>Erreur JS:</strong> '+e.message+'<br><small>'+e.stack+'</small></div>';
   }
-  var pages={accueil:pgAccueil,matchs:pgMatchs,classement:pgClass,groupes:pgGroupes,profil:pgProfil};
-  document.getElementById('main').innerHTML=(pages[S.page]||pgAccueil)();
 }
 
 /* ═══════════════════════════════════════════════
