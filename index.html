@@ -1098,6 +1098,35 @@ function hCopyUrl(url) {
 }
 
 function setQF(f){ S.qf=f; render(); }
+
+function randId(n) {
+  var c='abcdefghijklmnopqrstuvwxyz0123456789', r='';
+  for(var i=0;i<n;i++) r+=c[Math.floor(Math.random()*c.length)];
+  return r;
+}
+function groupUrl(gid) {
+  return window.location.origin + window.location.pathname + '?g=' + gid;
+}
+function currentGroupName() {
+  if (!GROUP_ID) return null;
+  for(var i=0;i<DB.groups.length;i++) if(DB.groups[i].id===GROUP_ID) return DB.groups[i].name;
+  return GROUP_ID;
+}
+async function createGroup(name) {
+  if (!sb || !name.trim()) return {ok:false, msg:'Nom vide'};
+  var gid = randId(6);
+  var r = await sb.from('groups').insert({id:gid, name:name.trim()}).select().single();
+  if (r.error) return {ok:false, msg:r.error.message};
+  DB.groups.push(r.data);
+  return {ok:true, group:r.data};
+}
+async function deleteGroup(gid) {
+  if (!sb) return;
+  await sb.from('users').update({group_id:null}).eq('group_id', gid);
+  await sb.from('groups').delete().eq('id', gid);
+  DB.groups = DB.groups.filter(function(g){return g.id!==gid;});
+}
+
 function setTab(t) { S.tab=t; S.grp='ALL'; S.qf='all'; render(); }
 function setGrp(g) { S.grp=g; S.qf='all'; render(); }
 function tCpw() { S.cpw=!S.cpw; render(); }
