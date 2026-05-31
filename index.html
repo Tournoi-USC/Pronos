@@ -339,6 +339,7 @@ var EMERGENCY_CODE = 'CDM2026RESCUE';
 /* ═══════════════════════════════════════════════
    ÉTAT APPLICATION
 ═══════════════════════════════════════════════ */
+var GROUP_ID = (typeof URLSearchParams !== 'undefined') ? (new URLSearchParams(window.location.search).get('g') || null) : null;
 var S = {user:null, page:'accueil', tab:'POULES', grp:'ALL', cpw:false, adm:false, qf:'all'};
 var adminMode = false;
 var logoClicks = 0, logoTimer = null;
