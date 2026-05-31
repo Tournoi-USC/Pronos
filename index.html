@@ -631,9 +631,11 @@ function initSB() {
 async function loadAll() {
   if (!sb) return;
   try {
-    // Toujours charger admin + users du groupe actif
+    // Admin voit tout, sinon filtre par groupe
     var rU, rUg = null;
-    if (GROUP_ID) {
+    var loggedSes = localStorage.getItem('cdm_ses');
+    var isAdminSession = (loggedSes === ADMIN);
+    if (GROUP_ID && !isAdminSession) {
       rU  = await sb.from('users').select('*').eq('pseudo_key', ADMIN);
       rUg = await sb.from('users').select('*').eq('group_id', GROUP_ID);
     } else {
@@ -748,11 +750,17 @@ async function doLogin(pseudo, pw) {
     if (existing.hash !== h) return {ok:false, msg:'Mot de passe incorrect.'};
   } else {
     var gid=(k===ADMIN)?null:GROUP_ID;
-    var r = await sb.from('users').insert({pseudo_key:k, pseudo_display:pseudo.trim(), hash:h, group_id:gid}).select().single();
-    if (r.error) return {ok:false, msg:'Erreur: '+r.error.message};
-    DB.users.push(r.data); DB.userMap[k] = r.data; DB.pronos[k] = {};
+    var insertRes = await fetch(SUPABASE_URL+'/rest/v1/users', {
+      method:'POST',
+      headers:{'Content-Type':'application/json','apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Prefer':'return=representation'},
+      body:JSON.stringify({pseudo_key:k, pseudo_display:pseudo.trim(), hash:h, group_id:gid})
+    }).then(function(r){return r.json().then(function(d){return {ok:r.ok,data:d};});});
+    if (!insertRes.ok) return {ok:false, msg:'Erreur création: '+(insertRes.data.message||JSON.stringify(insertRes.data))};
+    var newUser = Array.isArray(insertRes.data) ? insertRes.data[0] : insertRes.data;
+    DB.users.push(newUser); DB.userMap[k] = newUser; DB.pronos[k] = {};
   }
   S.user = k; localStorage.setItem('cdm_ses', k);
+  if (k===ADMIN && GROUP_ID) { try { await loadAll(); } catch(e){} }
   return {ok:true};
 }
 function doLogout() { S.user=null; adminMode=false; localStorage.removeItem('cdm_ses'); updateAdminBanner(); go('accueil'); }
