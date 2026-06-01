@@ -690,10 +690,13 @@ async function reloadPronos() {
   if (!sb) return;
   var r = await sb.from('pronos').select('*');
   var pronos = r.data || [];
+  // Build set of known user IDs (already filtered by group in DB.users)
+  var knownIds = {};
+  for (var j=0; j<DB.users.length; j++) knownIds[DB.users[j].id] = DB.users[j];
   for (var k in DB.pronos) DB.pronos[k] = {};
   for (var i=0; i<pronos.length; i++) {
-    var p = pronos[i], owner = null;
-    for (var j=0; j<DB.users.length; j++) { if (DB.users[j].id === p.user_id) { owner = DB.users[j]; break; } }
+    var p = pronos[i];
+    var owner = knownIds[p.user_id];
     if (owner) {
       if (!DB.pronos[owner.pseudo_key]) DB.pronos[owner.pseudo_key] = {};
       DB.pronos[owner.pseudo_key][p.match_id] = {h: p.home_score, a: p.away_score};
@@ -838,8 +841,8 @@ function lb() {
   for (var i=0; i<DB.users.length; i++) {
     var u = DB.users[i];
     if (u.pseudo_key===ADMIN) continue;
-    // Filtrer par groupe si GROUP_ID défini et pas admin
-    if (GROUP_ID && !isAdmin() && u.group_id !== GROUP_ID) continue;
+    // Sur URL de groupe: ne montrer que les membres du groupe
+    if (GROUP_ID && u.group_id !== GROUP_ID) continue;
     var st=pts(u.pseudo_key), pr=uPronos(u.pseudo_key);
     arr.push({k:u.pseudo_key, ps:u.pseudo_display, np:Object.keys(pr).length, p:st.p, ex:st.ex, ok:st.ok, pl:st.pl});
   }
