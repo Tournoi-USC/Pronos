@@ -994,6 +994,10 @@ function renderNav() {
     var nb2H=nb2>0?'<span class="nav-badge">'+nb2+'</span>':'';
     h += '<div class="ni'+(S.page===it.p?' on':'')+'" onclick="go(\''+it.p+'\')"><span>'+it.ic+'</span> <span>'+it.lb+'</span>'+nb2H+'</div>';
   }
+  if (S.user === ADMIN) {
+    h += '<div class="ni" onclick="doLogout()" style="margin-top:auto;border-top:1px solid var(--bdr)">'
+      +'<span>&#8594;</span> <span>Déconnexion admin</span></div>';
+  }
   document.getElementById('snav').innerHTML = h;
   var chip=document.getElementById('grp-chip');
   if(chip) chip.innerHTML=currentGroupName()?'&#128101; '+currentGroupName():'';
@@ -1386,7 +1390,16 @@ async function init(){
   if(!initSB()){render();return;}
   try{await loadAll();}catch(e){console.error('loadAll:',e);toast('Erreur chargement: '+e.message,'err');}
   var ses=localStorage.getItem('cdm_ses');
-  if(ses&&DB.userMap[ses])S.user=ses;
+  if(ses&&DB.userMap[ses]){
+    S.user=ses;
+    // Restore pronos from localStorage backup if Supabase returned none
+    if(Object.keys(DB.pronos[ses]||{}).length===0){
+      try{
+        var cached=localStorage.getItem('cdm_pronos_'+ses);
+        if(cached) DB.pronos[ses]=JSON.parse(cached);
+      }catch(e){}
+    }
+  }
   try{setupRealtime();}catch(e){console.warn('Realtime:',e);}
   startAutoSync();
   render();
