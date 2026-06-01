@@ -1034,8 +1034,14 @@ function pgNoGroup() {
 function render() {
   try {
     renderNav();
-    if (!GROUP_ID && !isAdmin() && S.user && S.user!==ADMIN && sb && S.page!=='profil') {
-      document.getElementById('main').innerHTML=pgNoGroup(); return;
+    // ROOT URL (?g= absent) = admin only
+    if (!GROUP_ID && sb) {
+      if (!isAdmin()) {
+        // Not logged in OR logged in as non-admin → show admin login page
+        var ng = pgNoGroup();
+        if (ng) { document.getElementById('main').innerHTML = ng; return; }
+        // If null returned (admin logged in), fall through to normal render
+      }
     }
     var pages={accueil:pgAccueil,matchs:pgMatchs,classement:pgClass,groupes:pgGroupes,profil:pgProfil};
     var fn = pages[S.page] || pgAccueil;
