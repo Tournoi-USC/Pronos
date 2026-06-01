@@ -1005,27 +1005,19 @@ function renderNav() {
 }
 
 function pgNoGroup() {
-  // URL racine sans groupe = accès admin uniquement
-  if (!S.user) {
-    var grpLinks = DB.groups.map(function(g){
-      return '<div style="background:var(--card);border:1px solid var(--bdr);border-radius:8px;padding:10px 16px;display:flex;justify-content:space-between;align-items:center">'
-        +'<span style="font-weight:600">&#128101; '+g.name+'</span>'
-        +'<button class="rsb" onclick="hCopyUrl(\''+groupUrl(g.id)+'\')" style="background:#1a2e1a;color:var(--grn)">&#128279; Copier URL</button>'
-        +'</div>';
-    }).join('');
-    return '<div style="max-width:400px;margin:80px auto;text-align:center">'
+  if (!S.user || !isAdmin()) {
+    return '<div style="max-width:380px;margin:100px auto;text-align:center">'
       +'<div style="font-size:3rem;margin-bottom:16px">&#127942;</div>'
-      +'<h1 style="font-size:1.8rem;font-weight:900;margin-bottom:8px">PRONO CDM 26</h1>'
-      +'<p style="color:var(--muted);margin-bottom:20px">Acc\u00e8s r\u00e9serv\u00e9 \u00e0 l\'administrateur.<br>Les joueurs doivent utiliser leur lien de groupe.</p>'
-      +'<div style="background:var(--card);border:1px solid var(--bdr);border-radius:12px;padding:20px;text-align:left">'
-      +'<div style="display:flex;flex-direction:column;gap:10px">'
+      +'<h1 style="font-size:1.8rem;font-weight:900;margin-bottom:6px">PRONO CDM 26</h1>'
+      +'<p style="color:var(--muted);margin-bottom:24px;font-size:.88rem">Espace administrateur</p>'
+      +'<div style="background:var(--card);border:1px solid var(--bdr);border-radius:12px;padding:24px;text-align:left">'
+      +'<div style="display:flex;flex-direction:column;gap:12px">'
       +'<input class="fi" id="lp" placeholder="Pseudo admin" autocomplete="username">'
       +'<div style="position:relative"><input class="fi" id="lpw" type="password" placeholder="Mot de passe" style="width:100%;padding-right:40px">'
       +'<span id="tpwbtn" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);cursor:pointer;color:var(--muted)">&#128065;</span></div>'
-      +'<button class="btn-g" onclick="hLogin()" style="width:100%">Se connecter</button>'
+      +'<button class="btn-g" onclick="hLogin()" style="width:100%">Connexion</button>'
       +'<div id="lerr" style="color:var(--red);font-size:.78rem;text-align:center"></div>'
       +'</div></div>'
-      +(DB.groups.length ? '<div style="margin-top:20px;text-align:left"><p style="color:var(--muted);font-size:.75rem;margin-bottom:8px">Liens des groupes :</p>'+grpLinks+'</div>' : '')
       +'</div>';
   }
   return null;
