@@ -836,7 +836,10 @@ function ptBadge(id, user) {
 function lb() {
   var arr = [];
   for (var i=0; i<DB.users.length; i++) {
-    var u = DB.users[i]; if (u.pseudo_key===ADMIN) continue;
+    var u = DB.users[i];
+    if (u.pseudo_key===ADMIN) continue;
+    // Filtrer par groupe si GROUP_ID défini et pas admin
+    if (GROUP_ID && !isAdmin() && u.group_id !== GROUP_ID) continue;
     var st=pts(u.pseudo_key), pr=uPronos(u.pseudo_key);
     arr.push({k:u.pseudo_key, ps:u.pseudo_display, np:Object.keys(pr).length, p:st.p, ex:st.ex, ok:st.ok, pl:st.pl});
   }
@@ -966,7 +969,7 @@ function renderNav() {
   }
   document.getElementById('snav').innerHTML = h;
   var chip=document.getElementById('grp-chip');
-  if(chip) chip.textContent=currentGroupName()?'&#128101; '+currentGroupName():'';
+  if(chip) chip.innerHTML=currentGroupName()?'&#128101; '+currentGroupName():'';
 
 }
 function render() {
