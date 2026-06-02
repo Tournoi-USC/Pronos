@@ -1177,8 +1177,11 @@ function pgMatchs() {
   var qfH = '';
   if (S.user && S.user !== ADMIN) {
     var pc = pendingCount();
+    var today = new Date().toISOString().slice(0,10);
+    var todayCount = filtered.filter(function(m){ return m.dt === today; }).length;
     qfH = '<div class="qf">'
-      + '<button class="qfb'+(S.qf==='all'?' on':'')+'" onclick="setQF(&apos;all&apos;)">Tous les matchs</button>'
+      + '<button class="qfb'+(S.qf==='all'?' on':'')+'" onclick="setQF(&apos;all&apos;)">Tous</button>'
+      + (todayCount>0?'<button class="qfb'+(S.qf==='today'?' on':'')+'" onclick="setQF(&apos;today&apos;)">&#128197; Du jour ('+todayCount+')</button>':'')
       + '<button class="qfb'+(S.qf==='open'?' on':'')+'" onclick="setQF(&apos;open&apos;)">&#128274; Sans prono ('+pc+')</button>'
       + '<button class="qfb'+(S.qf==='done'?' on':'')+'" onclick="setQF(&apos;done&apos;)">&#10003; Déjà saisis</button>'
       + '</div>';
@@ -1189,6 +1192,7 @@ function pgMatchs() {
         var isOpen = new Date() < new Date(m.dt + 'T' + m.ti);
         if (S.qf === 'open') return isOpen && !hasPr;
         if (S.qf === 'done') return hasPr;
+        if (S.qf === 'today') return m.dt === new Date().toISOString().slice(0,10);
         return true;
       });
     }
@@ -1445,6 +1449,8 @@ init();
 
 function pgStats() {
   if (!isAdmin()) return pgAccueil();
+  // Tab: 'global' or group id
+  if (!S.statsTab) S.statsTab = 'global';
 
   var res = DB.results;
   var allUsers = DB.users.filter(function(u){ return u.pseudo_key !== ADMIN; });
@@ -1530,27 +1536,116 @@ function pgStats() {
       +'</div>';
   };
 
+    // Build tabs
+  var tabsH = '<div class="tabs" style="margin-top:16px">'
+    + '<button class="tb'+(S.statsTab==='global'?' on':'')+'" onclick="S.statsTab=\'global\';render()">&#127758; Global</button>';
+  DB.groups.forEach(function(g){
+    tabsH += '<button class="tb'+(S.statsTab===g.id?' on':'')+'" onclick="S.statsTab=\''+g.id+'\';render()">&#128101; '+g.name+'</button>';
+  });
+  tabsH += '</div>';
+
+  var content2 = '';
+
+  if (S.statsTab === 'global') {
+    // Global KPIs
+    content2 += '<div class="sg" style="margin-top:20px">'
+      +card('&#128101;', 'Joueurs inscrits', allUsers.length, DB.groups.length+' groupe(s)')
+      +card('&#127919;', 'Total pronostics', totalPronos, '')
+      +card('&#9989;', 'Scores exacts', totalExact, (totalPronos>0?Math.round(totalExact/totalPronos*100)+'% de r\u00e9ussite':''))
+      +card('&#10003;', 'Bons r\u00e9sultats', totalOk, '')
+      +card('&#127942;', 'Meilleur joueur', topUser?topUser.pseudo_display:'\u2014', topUser?topPts+' pts':'')
+      +(bestMatch?card('&#129351;', 'Match le mieux pr\u00e9dit', bestMatch.h+' - '+bestMatch.a, matchExact[bestMatchId]+' score(s) exact(s)'):'')
+      +'</div>';
+    // Stats par groupe
+    if (DB.groups.length > 0) {
+      content2 += '<div style="margin-top:28px"><h3 style="font-size:.95rem;font-weight:800;margin-bottom:12px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted)">Par groupe</h3>'
+        +'<div class="card" style="padding:0"><table class="rt"><thead><tr>'
+        +'<th>Groupe</th><th class="r">Joueurs</th><th class="r">Pronos</th><th class="r">Participation</th><th class="r">Exacts</th><th class="r">R&eacute;sultats</th><th class="r gd">Moy. pts</th>'
+        +'</tr></thead><tbody>'+grpRows+'</tbody></table></div></div>';
+    }
+    // Top 5
+    if (topRows) {
+      content2 += '<div style="margin-top:28px"><h3 style="font-size:.95rem;font-weight:800;margin-bottom:12px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted)">Top 5 tous groupes</h3>'
+        +'<div class="card" style="padding:0"><table class="rt"><thead><tr>'
+        +'<th>#</th><th>Joueur</th><th>Groupe</th><th class="r">Exacts</th><th class="r">R&eacute;sultats</th><th class="r gd">Points</th>'
+        +'</tr></thead><tbody>'+topRows+'</tbody></table></div></div>';
+    }
+  } else {
+    // Group tab
+    var grp = null;
+    DB.groups.forEach(function(g){ if(g.id===S.statsTab) grp=g; });
+    if (!grp) { content2='<div class="empty">Groupe introuvable.</div>'; }
+    else {
+      var gd = grpMap[grp.id] || {users:[],pts:0,exact:0,ok:0,pronos:0};
+      var gUsers = allUsers.filter(function(u){ return u.group_id===grp.id; });
+      var nb = gUsers.length;
+      var avgPts = nb>0?(gd.pts/nb).toFixed(1):'—';
+      var rate = nb>0&&playedIds.length>0?Math.round(gd.pronos/(nb*Math.max(playedIds.length,1))*100):0;
+      content2 += '<div class="sg" style="margin-top:20px">'
+        +card('&#128101;', 'Joueurs', nb, '')
+        +card('&#127919;', 'Total pronos', gd.pronos, rate+'% participation')
+        +card('&#9989;', 'Scores exacts', gd.exact, '')
+        +card('&#10003;', 'Bons r\u00e9sultats', gd.ok, '')
+        +card('&#127942;', 'Moyenne points', avgPts, '')
+        +'</div>';
+      // Group leaderboard
+      var gBoard = [];
+      gUsers.forEach(function(u){
+        var st=pts(u.pseudo_key), pr=uPronos(u.pseudo_key);
+        gBoard.push({k:u.pseudo_key,ps:u.pseudo_display,np:Object.keys(pr).length,p:st.p,ex:st.ex,ok:st.ok});
+      });
+      gBoard.sort(function(a,b){return b.p-a.p||b.ex-a.ex||b.ok-a.ok;});
+      var gRows='';
+      gBoard.forEach(function(u,i){
+        var medal=i===0?'&#129351;':i===1?'&#129352;':i===2?'&#129353;':(i+1);
+        gRows+='<tr><td class="rn'+(i<3?' t':'')+'">'+medal+'</td>'
+          +'<td>'+u.ps+'</td>'
+          +'<td class="rnc">'+u.np+'</td>'
+          +'<td class="rnc">'+u.ex+'</td>'
+          +'<td class="rnc">'+u.ok+'</td>'
+          +'<td class="rpts">'+u.p+'</td></tr>';
+      });
+      if (gRows) {
+        content2 += '<div style="margin-top:20px"><div class="card" style="padding:0">'
+          +'<table class="rt"><thead><tr><th>#</th><th>Joueur</th><th class="r">Pronos</th><th class="r">Exacts</th><th class="r">R&eacute;sultats</th><th class="r gd">Points</th></tr></thead>'
+          +'<tbody>'+gRows+'</tbody></table></div></div>';
+      } else {
+        content2 += '<div class="empty">Aucun joueur dans ce groupe.</div>';
+      }
+      // Pronos detail per match (played only)
+      if (playedIds.length > 0) {
+        var matchRows = '';
+        playedIds.slice(0,20).forEach(function(mid){
+          var mm = null; for(var i=0;i<M.length;i++){if(M[i].id==mid){mm=M[i];break;}}
+          if(!mm) return;
+          var r = DB.results[mid];
+          var exact=0,good=0,miss=0,none=0;
+          gUsers.forEach(function(u){
+            var pn=uPronos(u.pseudo_key)[mid];
+            if(!pn){none++;return;}
+            if(pn.h===r.h&&pn.a===r.a) exact++;
+            else if(Math.sign(pn.h-pn.a)===Math.sign(r.h-r.a)) good++;
+            else miss++;
+          });
+          matchRows+='<tr><td style="padding:8px 14px;font-size:.82rem">'+mm.h+' '+r.h+'-'+r.a+' '+mm.a+'</td>'
+            +'<td class="rnc" style="color:var(--gold)">'+exact+'</td>'
+            +'<td class="rnc" style="color:var(--grn)">'+good+'</td>'
+            +'<td class="rnc" style="color:var(--red)">'+miss+'</td>'
+            +'<td class="rnc">'+none+'</td></tr>';
+        });
+        if (matchRows) {
+          content2 += '<div style="margin-top:20px"><h3 style="font-size:.95rem;font-weight:800;margin-bottom:12px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted)">D\u00e9tail des matchs jou\u00e9s</h3>'
+            +'<div class="card" style="padding:0"><table class="rt"><thead><tr>'
+            +'<th>Match</th><th class="r" style="color:var(--gold)">Exacts</th><th class="r" style="color:var(--grn)">Bons</th><th class="r" style="color:var(--red)">Rat\u00e9s</th><th class="r">Non saisi</th>'
+            +'</tr></thead><tbody>'+matchRows+'</tbody></table></div></div>';
+        }
+      }
+    }
+  }
+
   return '<div class="pt">&#128202; STATISTIQUES</div>'
     +'<p class="psub">Vue globale &mdash; visible uniquement par l\'admin</p>'
-    // Global KPIs
-    +'<div class="sg" style="margin-top:20px">'
-    +card('&#128101;', 'Joueurs inscrits', allUsers.length, DB.groups.length+' groupe(s)')
-    +card('&#127919;', 'Total pronostics', totalPronos, '')
-    +card('&#9989;', 'Scores exacts', totalExact, (totalPronos>0?Math.round(totalExact/totalPronos*100)+'% de réussite':''))
-    +card('&#10003;', 'Bons résultats', totalOk, '')
-    +card('&#127942;', 'Meilleur joueur', topUser?topUser.pseudo_display:'—', topUser?topPts+' pts':'')
-    +(bestMatch?card('&#129351;', 'Match le mieux prédit', bestMatch.h+' - '+bestMatch.a, matchExact[bestMatchId]+' score(s) exact(s)'):'')
-    +'</div>'
-    // Stats par groupe
-    +(DB.groups.length > 0 ? '<div style="margin-top:28px"><h3 style="font-size:.95rem;font-weight:800;margin-bottom:12px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted)">Par groupe</h3>'
-    +'<div class="card" style="padding:0"><table class="rt"><thead><tr>'
-    +'<th>Groupe</th><th class="r">Joueurs</th><th class="r">Pronos</th><th class="r">Participation</th><th class="r">Exacts</th><th class="r">R&eacute;sultats</th><th class="r gd">Moy. pts</th>'
-    +'</tr></thead><tbody>'+grpRows+'</tbody></table></div></div>' : '')
-    // Top 5 global
-    +(topRows ? '<div style="margin-top:28px"><h3 style="font-size:.95rem;font-weight:800;margin-bottom:12px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted)">Top 5 tous groupes</h3>'
-    +'<div class="card" style="padding:0"><table class="rt"><thead><tr>'
-    +'<th>#</th><th>Joueur</th><th>Groupe</th><th class="r">Exacts</th><th class="r">R&eacute;sultats</th><th class="r gd">Points</th>'
-    +'</tr></thead><tbody>'+topRows+'</tbody></table></div></div>' : '');
+    +tabsH+content2;
 }
 
 /* ── Custom team names: direct Supabase matches update ── */
