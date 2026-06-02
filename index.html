@@ -399,6 +399,36 @@ function buildAdminPanel() {
     +'<div id="de" style="font-size:.78rem;margin-bottom:4px"></div>'+hr
     +'<h4 style="margin-bottom:8px">&#128101; Joueurs ('+realUsers.length+')</h4>'
     +userTagsH+hr
+
+    +'<hr class="hr2">'
+    +'<h4 style="margin-bottom:8px">&#9997; Noms des équipes (phases finales)</h4>'
+    +'<p style="font-size:.75rem;color:var(--muted);margin-bottom:10px">Remplacez les codes (W73, 1C...) par les vrais noms des équipes qualifiées. Cela s’applique à tous les groupes.</p>'
+    +(function(){
+      var phases=['BARRAGES','HUITÈMES','QUARTS','DEMIS','PETITE FINALE','FINALE'];
+      var html='';
+      for(var pi=0;pi<phases.length;pi++){
+        var ph=phases[pi];
+        var ms=M.filter(function(m){return m.ph===ph;});
+        if(!ms.length) continue;
+        html+='<div style="margin-bottom:10px"><div style="font-size:.75rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">'+ph+'</div>';
+        for(var mi=0;mi<ms.length;mi++){
+          var m=ms[mi];
+          var hVal=customTeams[m.id+'_h']||'';
+          var aVal=customTeams[m.id+'_a']||'';
+          html+='<div style="display:flex;gap:6px;align-items:center;margin-bottom:5px;flex-wrap:wrap">';
+          html+='<span style="font-size:.72rem;color:var(--muted);width:55px">#'+m.id+'</span>';
+          html+='<input class="fi team-inp" data-mid="'+m.id+'" data-side="h" value="'+hVal+'" placeholder="'+m.h+'" style="flex:1;min-width:100px;padding:6px 10px;font-size:.78rem">';
+          html+='<span style="color:var(--muted);font-size:.8rem">vs</span>';
+          html+='<input class="fi team-inp" data-mid="'+m.id+'" data-side="a" value="'+aVal+'" placeholder="'+m.a+'" style="flex:1;min-width:100px;padding:6px 10px;font-size:.78rem">';
+          html+='</div>';
+        }
+        html+='</div>';
+      }
+      return html;
+    })()
+    +'<button class="btn-g" onclick="hSaveTeams()" style="margin-top:4px">&#128190; Sauvegarder les noms</button>'
+    +'<div id="te" style="font-size:.78rem;margin-top:5px"></div>'
+
     +'<h4 style="margin-bottom:8px">&#128273; PIN admin</h4>'
     +'<div style="display:flex;gap:8px;flex-wrap:wrap"><input class="fi" id="opin" type="password" placeholder="PIN actuel" style="width:110px"><input class="fi" id="npin" type="password" placeholder="Nouveau PIN" style="width:110px"><button class="btn-g" onclick="hChgPin()">Modifier</button></div>'
     +'<div id="pe" style="color:var(--red);font-size:.78rem;margin-top:5px"></div>'
@@ -689,6 +719,13 @@ async function loadAll() {
     DB.results = {};
     for (var i=0; i<results.length; i++) DB.results[results[i].match_id] = {h: results[i].home_score, a: results[i].away_score};
     for (var i=0; i<config.length; i++) DB.config[config[i].key] = config[i].value;
+    // Load matches from Supabase (overrides hardcoded M array)
+    var rM = await sb.from('matches').select('*').order('id');
+    if (rM.data && rM.data.length > 0) {
+      M = rM.data.map(function(r){
+        return {id:r.id, ph:r.phase, gr:r.grp, dt:r.dt, ti:r.ti, h:r.home, a:r.away, v:r.venue};
+      });
+    }
   } catch(e) { toast('Erreur de chargement: ' + e.message, 'err'); }
 }
 
@@ -1165,6 +1202,8 @@ function pgMatchs() {
 function cardMatch(m) {
   var res=getRes(m.id), pr=S.user?uPronos(S.user):{}, pn=pr[m.id]||null;
   var dt=new Date(m.dt+'T'+m.ti), started=(new Date())>=dt;
+  var hName = m.h;
+  var aName = m.a;
   var ptb=(S.user&&S.user!==ADMIN&&pn&&res)?ptBadge(m.id,S.user):null;
   var dateStr=dt.toLocaleDateString('fr-FR',{day:'numeric',month:'short'})+' &middot; '+m.ti;
   var scoreBlock=res?('<div class="sd"><div class="sb2">'+res.h+'</div><span style="color:var(--muted);margin:0 2px">-</span><div class="sb2">'+res.a+'</div></div>'):'<div style="color:var(--muted);font-size:1.4rem;font-weight:900">VS</div>';
@@ -1185,7 +1224,7 @@ function cardMatch(m) {
   }
   return '<div class="mc'+(pn&&S.user!==ADMIN?' hp':'')+(res?' fin':'')+'">'
    +'<div class="mh"><span class="mtag">Match #'+m.id+(m.gr?' &middot; Grp '+m.gr:'')+'</span><span class="ms'+(res?' fin':'')+'">'+(res?'TERMIN&Eacute;':'&Agrave; VENIR')+'</span></div>'
-   +'<div class="mteams"><div class="team"><span class="tf">'+flag(m.h)+'</span><div class="tn">'+m.h+'</div></div><div style="text-align:center">'+scoreBlock+'</div><div class="team" style="text-align:right"><span class="tf">'+flag(m.a)+'</span><div class="tn">'+m.a+'</div></div></div>'
+   +'<div class="mteams"><div class="team"><span class="tf">'+flag(hName)+'</span><div class="tn">'+hName+'</div></div><div style="text-align:center">'+scoreBlock+'</div><div class="team" style="text-align:right"><span class="tf">'+flag(aName)+'</span><div class="tn">'+aName+'</div></div></div>'
    +pronoBlock+adminBlock
    +'<div class="mf2"><span>&#128197; '+dateStr+' &middot; &#128205; '+m.v+'</span>'+'<span>'+(tvTag(m.id)?tvTag(m.id)+' ':'')+countdown(m.dt,m.ti)+'</span></div>'+(!started&&S.user&&S.user!==ADMIN?'<div style="font-size:.7rem;color:var(--muted);margin-top:4px;text-align:right">'+'&#128274; Prono jusqu\'au '+new Date(m.dt+'T'+m.ti).toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'})+'  '+m.ti+'</div>':'')+'</div>';
 }
@@ -1512,6 +1551,27 @@ function pgStats() {
     +'<div class="card" style="padding:0"><table class="rt"><thead><tr>'
     +'<th>#</th><th>Joueur</th><th>Groupe</th><th class="r">Exacts</th><th class="r">R&eacute;sultats</th><th class="r gd">Points</th>'
     +'</tr></thead><tbody>'+topRows+'</tbody></table></div></div>' : '');
+}
+
+/* ── Custom team names: direct Supabase matches update ── */
+var customTeams = {};
+function loadCustomTeams() { customTeams = {}; } // no-op, M loaded from DB
+function teamName(matchId, side) { return null; } // no-op, names are in M
+
+async function hSaveTeams() {
+  var inputs = document.querySelectorAll('.team-inp');
+  inputs.forEach(function(inp) {
+    var mid = inp.getAttribute('data-mid');
+    var side = inp.getAttribute('data-side');
+    var val = inp.value.trim();
+    if (val) customTeams[mid+'_'+side] = val;
+    else delete customTeams[mid+'_'+side];
+  });
+  await saveCustomTeams();
+  var e = document.getElementById('te');
+  if (e) { e.textContent = 'Noms sauvegard\u00e9s \u2713'; e.style.color = 'var(--grn)'; }
+  toast('Noms des \u00e9quipes mis \u00e0 jour \u2713');
+  render();
 }
 </script>
 </body>
