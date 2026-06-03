@@ -27,7 +27,7 @@
 })();
 </script>
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Prono CDM 26/7</title>
+<title>Prono CDM 26</title>
 <meta name="theme-color" content="#f5a623">
 <meta name="mobile-web-app-capable" content="yes">
 <style>
@@ -197,7 +197,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 <button class="ham" id="ham">&#9776;</button>
 <div class="ov" id="ov"></div>
 <nav class="sb" id="sb">
-  <div class="sb-logo" onclick="logoClick()">&#127942; <span>PRONO CDM 26/7</span></div>
+  <div class="sb-logo" onclick="logoClick()">&#127942; <span>PRONO CDM 26/6</span></div>
   <div id="grp-chip" style="padding:4px 20px 8px;font-size:.72rem;color:var(--gold);opacity:.8"></div>
   <div class="sb-nav" id="snav"></div>
 </nav>
@@ -994,10 +994,6 @@ function renderNav() {
     var nb2H=nb2>0?'<span class="nav-badge">'+nb2+'</span>':'';
     h += '<div class="ni'+(S.page===it.p?' on':'')+'" onclick="go(\''+it.p+'\')"><span>'+it.ic+'</span> <span>'+it.lb+'</span>'+nb2H+'</div>';
   }
-  if (S.user === ADMIN) {
-    h += '<div class="ni" onclick="doLogout()" style="margin-top:auto;border-top:1px solid var(--bdr)">'
-      +'<span>&#8594;</span> <span>Déconnexion admin</span></div>';
-  }
   document.getElementById('snav').innerHTML = h;
   var chip=document.getElementById('grp-chip');
   if(chip) chip.innerHTML=currentGroupName()?'&#128101; '+currentGroupName():'';
@@ -1005,19 +1001,27 @@ function renderNav() {
 }
 
 function pgNoGroup() {
-  if (!S.user || !isAdmin()) {
-    return '<div style="max-width:380px;margin:100px auto;text-align:center">'
+  // URL racine sans groupe = accès admin uniquement
+  if (!S.user) {
+    var grpLinks = DB.groups.map(function(g){
+      return '<div style="background:var(--card);border:1px solid var(--bdr);border-radius:8px;padding:10px 16px;display:flex;justify-content:space-between;align-items:center">'
+        +'<span style="font-weight:600">&#128101; '+g.name+'</span>'
+        +'<button class="rsb" onclick="hCopyUrl(\''+groupUrl(g.id)+'\')" style="background:#1a2e1a;color:var(--grn)">&#128279; Copier URL</button>'
+        +'</div>';
+    }).join('');
+    return '<div style="max-width:400px;margin:80px auto;text-align:center">'
       +'<div style="font-size:3rem;margin-bottom:16px">&#127942;</div>'
-      +'<h1 style="font-size:1.8rem;font-weight:900;margin-bottom:6px">PRONO CDM 26</h1>'
-      +'<p style="color:var(--muted);margin-bottom:24px;font-size:.88rem">Espace administrateur</p>'
-      +'<div style="background:var(--card);border:1px solid var(--bdr);border-radius:12px;padding:24px;text-align:left">'
-      +'<div style="display:flex;flex-direction:column;gap:12px">'
+      +'<h1 style="font-size:1.8rem;font-weight:900;margin-bottom:8px">PRONO CDM 26</h1>'
+      +'<p style="color:var(--muted);margin-bottom:20px">Acc\u00e8s r\u00e9serv\u00e9 \u00e0 l\'administrateur.<br>Les joueurs doivent utiliser leur lien de groupe.</p>'
+      +'<div style="background:var(--card);border:1px solid var(--bdr);border-radius:12px;padding:20px;text-align:left">'
+      +'<div style="display:flex;flex-direction:column;gap:10px">'
       +'<input class="fi" id="lp" placeholder="Pseudo admin" autocomplete="username">'
       +'<div style="position:relative"><input class="fi" id="lpw" type="password" placeholder="Mot de passe" style="width:100%;padding-right:40px">'
       +'<span id="tpwbtn" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);cursor:pointer;color:var(--muted)">&#128065;</span></div>'
-      +'<button class="btn-g" onclick="hLogin()" style="width:100%">Connexion</button>'
+      +'<button class="btn-g" onclick="hLogin()" style="width:100%">Se connecter</button>'
       +'<div id="lerr" style="color:var(--red);font-size:.78rem;text-align:center"></div>'
       +'</div></div>'
+      +(DB.groups.length ? '<div style="margin-top:20px;text-align:left"><p style="color:var(--muted);font-size:.75rem;margin-bottom:8px">Liens des groupes :</p>'+grpLinks+'</div>' : '')
       +'</div>';
   }
   return null;
@@ -1026,14 +1030,8 @@ function pgNoGroup() {
 function render() {
   try {
     renderNav();
-    // ROOT URL (?g= absent) = admin only
-    if (!GROUP_ID && sb) {
-      if (!isAdmin()) {
-        // Not logged in OR logged in as non-admin → show admin login page
-        var ng = pgNoGroup();
-        if (ng) { document.getElementById('main').innerHTML = ng; return; }
-        // If null returned (admin logged in), fall through to normal render
-      }
+    if (!GROUP_ID && !isAdmin() && S.user && S.user!==ADMIN && sb && S.page!=='profil') {
+      document.getElementById('main').innerHTML=pgNoGroup(); return;
     }
     var pages={accueil:pgAccueil,matchs:pgMatchs,classement:pgClass,groupes:pgGroupes,profil:pgProfil};
     var fn = pages[S.page] || pgAccueil;
@@ -1388,16 +1386,7 @@ async function init(){
   if(!initSB()){render();return;}
   try{await loadAll();}catch(e){console.error('loadAll:',e);toast('Erreur chargement: '+e.message,'err');}
   var ses=localStorage.getItem('cdm_ses');
-  if(ses&&DB.userMap[ses]){
-    S.user=ses;
-    // Restore pronos from localStorage backup if Supabase returned none
-    if(Object.keys(DB.pronos[ses]||{}).length===0){
-      try{
-        var cached=localStorage.getItem('cdm_pronos_'+ses);
-        if(cached) DB.pronos[ses]=JSON.parse(cached);
-      }catch(e){}
-    }
-  }
+  if(ses&&DB.userMap[ses])S.user=ses;
   try{setupRealtime();}catch(e){console.warn('Realtime:',e);}
   startAutoSync();
   render();
