@@ -197,7 +197,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 <button class="ham" id="ham">&#9776;</button>
 <div class="ov" id="ov"></div>
 <nav class="sb" id="sb">
-  <div class="sb-logo" onclick="logoClick()">&#127942; <span>PRONO CDM 26/5</span></div>
+  <div class="sb-logo" onclick="logoClick()">&#127942; <span>PRONO CDM 26/L</span></div>
   <div id="grp-chip" style="padding:4px 20px 8px;font-size:.72rem;color:var(--gold);opacity:.8"></div>
   <div class="sb-nav" id="snav"></div>
 </nav>
@@ -249,8 +249,8 @@ var supabase = {
         order:function(col){_ord=col;return c;},
         insert:function(b){ return req(t,'POST',Array.isArray(b)?b:[b],{'Prefer':'return=representation'}); },
         upsert:function(b,opts){
-          var oc=opts&&opts.onConflict?'on_conflict='+opts.onConflict:'';
-          return req(t,'POST',Array.isArray(b)?b:[b],{'Prefer':'resolution=merge-duplicates,return=representation'},oc||undefined);
+          var oc=opts&&opts.onConflict?'on_conflict='+encodeURIComponent(opts.onConflict):'';
+          return req(t,'POST',Array.isArray(b)?b:[b],{'Prefer':'resolution=merge-duplicates,return=minimal'},oc||undefined);
         },
         update:function(b){ return {eq:function(col,v){ return req(t,'PATCH',b,{'Prefer':'return=representation'},col+'=eq.'+encodeURIComponent(v)); }}; },
         delete:function(){ return {eq:function(col,v){ return req(t,'DELETE',null,{},col+'=eq.'+encodeURIComponent(v)); }}; },
@@ -354,628 +354,173 @@ function buildAdminPanel() {
   var arrow=S.adm?'&#9650;':'&#9660;';
   var h='<div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--bdr)"><div class="adm-tog" onclick="tAdm()">&#128737; Panneau Admin <span style="margin-left:auto">'+arrow+'</span></div>';
   if(!S.adm) return h+'</div>';
+
+  // Admin sub-tabs
+  var atabs = '<div class="tabs" style="margin:12px 0">'
+    +'<button class="tb'+(S.adminTab==='scores'?' on':'')+'" onclick="S.adminTab=\'scores\';render()">&#9881; Scores</button>'
+    +'<button class="tb'+(S.adminTab==='joueurs'?' on':'')+'" onclick="S.adminTab=\'joueurs\';render()">&#128101; Joueurs</button>'
+    +'<button class="tb'+(S.adminTab==='equipes'?' on':'')+'" onclick="S.adminTab=\'equipes\';render()">&#9997; \u00c9quipes</button>'
+    +'<button class="tb'+(S.adminTab==='config'?' on':'')+'" onclick="S.adminTab=\'config\';render()">&#128273; Config</button>'
+    +'</div>';
+
   var admBtnLbl=(adminMode?'&#128275; D\u00e9sactiver':'&#128274; Activer')+' le mode saisie';
   var admStatusH=adminMode?'<p style="color:var(--grn);font-size:.78rem;margin-top:6px">&#10003; Mode admin actif.</p>':'';
   var apikey=DB.config.apikey||'';
   var pending=getMatchesPendingSync();
   var pendingH=pending.length>0?'<p style="color:var(--gold);font-size:.78rem;margin-top:6px">&#9889; '+pending.length+' match(s) en attente</p>':'<p style="color:var(--grn);font-size:.78rem;margin-top:6px">&#10003; Scores \u00e0 jour</p>';
-  var grpMap={}; for(var gmi=0;gmi<DB.groups.length;gmi++) grpMap[DB.groups[gmi].id]=DB.groups[gmi].name;
-  var realUsers=DB.users.filter(function(u){return u.pseudo_key!==ADMIN;});
-  var userTagsH='';
-  if(!realUsers.length){userTagsH='<span style="color:var(--muted);font-size:.78rem">Aucun joueur inscrit.</span>';}
-  else{
-    userTagsH='<div style="overflow-y:auto;max-height:240px"><table style="width:100%;border-collapse:collapse;font-size:.78rem"><thead><tr><th style="text-align:left;padding:4px 8px;color:var(--muted);border-bottom:1px solid var(--bdr)">Pseudo</th><th style="text-align:left;padding:4px 8px;color:var(--muted);border-bottom:1px solid var(--bdr)">Groupe</th><th style="padding:4px 8px;border-bottom:1px solid var(--bdr)"></th></tr></thead><tbody>';
-    for(var ui=0;ui<realUsers.length;ui++){
-      var uk=realUsers[ui],ugname=uk.group_id?(grpMap[uk.group_id]||uk.group_id):'<span style="color:var(--muted)">\u2014</span>';
-      userTagsH+='<tr style="border-bottom:1px solid var(--bdr)"><td style="padding:6px 8px;font-weight:600">'+uk.pseudo_display+'</td><td style="padding:6px 8px;color:var(--gold)">'+ugname+'</td><td style="padding:6px 8px;text-align:right"><span class="xbtn" data-k="'+uk.pseudo_key+'" style="cursor:pointer;color:var(--muted)">&#128465;</span></td></tr>';
+
+  var panelContent = '';
+
+  if (S.adminTab === 'scores') {
+    var gh='';
+    for(var gi=0;gi<DB.groups.length;gi++){
+      var gg=DB.groups[gi],gurl=window.location.origin+window.location.pathname+'?g='+gg.id;
+      var gcnt=DB.users.filter(function(u){return u.group_id===gg.id&&u.pseudo_key!==ADMIN;}).length;
+      gh+='<div style="background:var(--bg);border:1px solid var(--bdr);border-radius:8px;padding:10px 14px;margin-bottom:6px">'
+        +'<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">'
+        +'<div><strong>&#128101; '+gg.name+'</strong> <span style="color:var(--muted);font-size:.72rem">('+gcnt+' joueur(s))</span></div>'
+        +'<div style="display:flex;gap:6px">'
+        +'<button class="rsb" onclick="hCopyUrl(&apos;'+gurl+'&apos;)" style="background:#1a2e1a;color:var(--grn)">&#128279; URL</button>'
+        +'<button class="rsb" onclick="hDelGroup(&apos;'+gg.id+'&apos;)" style="color:var(--red)">&#128465;</button>'
+        +'</div></div>'
+        +'<div style="font-size:.7rem;color:var(--muted);margin-top:3px;word-break:break-all">'+gurl+'</div></div>';
     }
-    userTagsH+='</tbody></table></div>';
+    if(!DB.groups.length) gh='<p style="color:var(--muted);font-size:.8rem;margin-bottom:8px">Aucun groupe cr\u00e9\u00e9.</p>';
+    panelContent = '<h4 style="margin-bottom:8px">&#128101; Groupes</h4>'+gh
+      +'<div style="display:flex;gap:8px;margin-bottom:6px;flex-wrap:wrap">'
+      +'<input class="fi" id="new-grp" placeholder="Nom du groupe" style="flex:1;min-width:160px">'
+      +'<button class="btn-g" onclick="hCreateGroup()">+ Cr\u00e9er</button></div>'
+      +'<div id="grpe" style="font-size:.78rem;margin-bottom:4px"></div>'
+      +'<hr class="hr2">'
+      +'<h4 style="margin-bottom:8px">&#9881; Mode saisie des scores r\u00e9els</h4>'
+      +'<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px">'
+      +'<input class="fi" id="apm" type="password" placeholder="PIN admin" style="width:120px">'
+      +'<button class="btn-g" onclick="hTogAdm()">'+admBtnLbl+'</button></div>'
+      +'<div id="ame" style="color:var(--red);font-size:.78rem"></div>'+admStatusH
+      +'<hr class="hr2">'
+      +'<h4 style="margin-bottom:6px">&#128260; Sync automatique</h4>'
+      +'<p style="font-size:.75rem;color:var(--muted);margin-bottom:8px">API <a href="https://www.football-data.org/client/register" target="_blank" style="color:var(--gold)">football-data.org</a> (gratuite). 2h apr\u00e8s chaque match.</p>'
+      +pendingH
+      +'<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;margin-bottom:6px">'
+      +'<input class="fi" id="apikey" placeholder="Cl\u00e9 API" value="'+apikey+'" style="flex:2;min-width:160px">'
+      +'<button class="btn-g" onclick="hSaveKey()">&#128190;</button>'
+      +'<button class="btn-g" onclick="autoFetch(false)" style="background:#3a3a6e;color:#fff">&#8635;</button></div>'
+      +'<div id="synce" style="font-size:.75rem;color:var(--muted)"></div>';
   }
-  var gh='';
-  for(var gi=0;gi<DB.groups.length;gi++){
-    var gg=DB.groups[gi],gurl=window.location.origin+window.location.pathname+'?g='+gg.id;
-    var gcnt=DB.users.filter(function(u){return u.group_id===gg.id&&u.pseudo_key!==ADMIN;}).length;
-    gh+='<div style="background:var(--bg);border:1px solid var(--bdr);border-radius:8px;padding:10px 14px;margin-bottom:6px"><div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap"><div><strong>&#128101; '+gg.name+'</strong> <span style="color:var(--muted);font-size:.72rem">('+gcnt+' joueur(s))</span></div><div style="display:flex;gap:6px"><button class="rsb" onclick="hCopyUrl(&apos;'+gurl+'&apos;)" style="background:#1a2e1a;color:var(--grn)">&#128279; URL</button><button class="rsb" onclick="hDelGroup(&apos;'+gg.id+'&apos;)" style="color:var(--red)">&#128465;</button></div></div><div style="font-size:.7rem;color:var(--muted);margin-top:3px;word-break:break-all">'+gurl+'</div></div>';
-  }
-  if(!DB.groups.length) gh='<p style="color:var(--muted);font-size:.8rem;margin-bottom:8px">Aucun groupe cr\u00e9\u00e9.</p>';
-  var hr='<hr class="hr2">';
-  return h+'<div class="adm-pan">'
-    +'<h4 style="margin-bottom:8px">&#128101; Gestion des groupes</h4>'+gh
-    +'<div style="display:flex;gap:8px;margin-bottom:6px;flex-wrap:wrap"><input class="fi" id="new-grp" placeholder="Nom du groupe" style="flex:1;min-width:160px"><button class="btn-g" onclick="hCreateGroup()">+ Cr\u00e9er</button></div>'
-    +'<div id="grpe" style="font-size:.78rem;margin-bottom:4px"></div>'+hr
-    +'<h4 style="margin-bottom:8px">&#9881; Mode saisie des scores r\u00e9els</h4>'
-    +'<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px"><input class="fi" id="apm" type="password" placeholder="PIN admin" style="width:120px"><button class="btn-g" onclick="hTogAdm()">'+admBtnLbl+'</button></div>'
-    +'<div id="ame" style="color:var(--red);font-size:.78rem"></div>'+admStatusH+hr
-    +'<h4 style="margin-bottom:6px">&#128260; Sync automatique scores</h4>'
-    +'<p style="font-size:.75rem;color:var(--muted);margin-bottom:8px">API <a href="https://www.football-data.org/client/register" target="_blank" style="color:var(--gold)">football-data.org</a> (gratuite). 2h apr\u00e8s chaque match.</p>'
-    +pendingH
-    +'<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;margin-bottom:6px"><input class="fi" id="apikey" placeholder="Cl\u00e9 API" value="'+apikey+'" style="flex:2;min-width:160px"><button class="btn-g" onclick="hSaveKey()">&#128190;</button><button class="btn-g" onclick="autoFetch(false)" style="background:#3a3a6e;color:#fff">&#8635;</button></div>'
-    +'<div id="synce" style="font-size:.75rem;color:var(--muted)"></div>'+hr
-    +'<h4 style="margin-bottom:8px">&#128737; R\u00e9initialisation mdp joueur</h4>'
-    +'<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px"><input class="fi" id="ap" placeholder="Pseudo" style="flex:1;min-width:120px"><input class="fi" id="anp" type="password" placeholder="Nouveau mdp" style="flex:1;min-width:120px"><input class="fi" id="apin" type="password" placeholder="PIN" style="width:90px"><button class="btn-g" onclick="hAdmReset()">OK</button></div>'
-    +'<div id="ae" style="font-size:.78rem;margin-bottom:6px"></div>'+hr
-    +'<h4 style="margin-bottom:8px">&#128465; Supprimer un compte</h4>'
-    +'<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px"><input class="fi" id="dup" placeholder="Pseudo" style="flex:1;min-width:140px"><input class="fi" id="dpin" type="password" placeholder="PIN" style="width:90px"><button class="btn-r" onclick="hDelUser()">&#128465;</button></div>'
-    +'<div id="de" style="font-size:.78rem;margin-bottom:4px"></div>'+hr
-    +'<h4 style="margin-bottom:8px">&#128101; Joueurs ('+realUsers.length+')</h4>'
-    +userTagsH+hr
-    +'<h4 style="margin-bottom:8px">&#128273; PIN admin</h4>'
-    +'<div style="display:flex;gap:8px;flex-wrap:wrap"><input class="fi" id="opin" type="password" placeholder="PIN actuel" style="width:110px"><input class="fi" id="npin" type="password" placeholder="Nouveau PIN" style="width:110px"><button class="btn-g" onclick="hChgPin()">Modifier</button></div>'
-    +'<div id="pe" style="color:var(--red);font-size:.78rem;margin-top:5px"></div>'
-    +'</div></div>';
-}
 
-async function hSaveAll(){
-  if(!S.user||S.user===ADMIN||!sb) return;
-  var uid=DB.userMap[S.user].id,records=[],saved=0;
-  for(var mi=0;mi<M.length;mi++){
-    var m=M[mi];
-    var hEl=document.getElementById('ph'+m.id),aEl=document.getElementById('pa'+m.id);
-    if(!hEl||!aEl||hEl.value===''||aEl.value==='') continue;
-    records.push({user_id:uid,match_id:m.id,home_score:+hEl.value,away_score:+aEl.value,updated_at:new Date().toISOString()});
-    if(!DB.pronos[S.user]) DB.pronos[S.user]={};
-    DB.pronos[S.user][m.id]={h:+hEl.value,a:+aEl.value};
-    saved++;
-  }
-  if(!records.length){toast('Aucun pronostic \u00e0 sauvegarder','info');return;}
-  var btn=document.querySelector('.save-bar button');
-  if(btn){btn.disabled=true;btn.innerHTML='&#9203; Sauvegarde...';}
-  var r=await sb.from('pronos').upsert(records,{onConflict:'user_id,match_id'});
-  if(r.error){toast('Erreur: '+r.error.message,'err');}
-  else{toast(saved+' pronostic(s) sauvegard\u00e9(s) \u2713');render();}
-}
-
-function randId(n){var c='abcdefghijklmnopqrstuvwxyz0123456789',r='';for(var i=0;i<n;i++)r+=c[Math.floor(Math.random()*c.length)];return r;}
-function groupUrl(gid){return window.location.origin+window.location.pathname+'?g='+gid;}
-async function createGroup(name){if(!sb||!name.trim())return{ok:false,msg:'Nom vide'};var gid=randId(6);var r=await sb.from('groups').insert({id:gid,name:name.trim()}).single();if(r.error)return{ok:false,msg:r.error.message};DB.groups.push(r.data);return{ok:true,group:r.data};}
-async function deleteGroup(gid){if(!sb)return;await sb.from('users').update({group_id:null}).eq('group_id',gid);await sb.from('groups').delete().eq('id',gid);DB.groups=DB.groups.filter(function(g){return g.id!==gid;});}
-async function hCreateGroup(){var name=gv('new-grp').trim(),e=document.getElementById('grpe');if(!name){if(e){e.textContent='Entrez un nom.';e.style.color='var(--red)';}return;}var r=await createGroup(name);if(r.ok){toast('Groupe "'+r.group.name+'" cr\u00e9\u00e9 \u2713');var inp=document.getElementById('new-grp');if(inp)inp.value='';render();}else{if(e){e.textContent=r.msg;e.style.color='var(--red)';}}}
-async function hDelGroup(gid){if(!confirm('Supprimer ce groupe ?'))return;await deleteGroup(gid);toast('Groupe supprim\u00e9');render();}
-function hCopyUrl(url){navigator.clipboard.writeText(url).then(function(){toast('URL copi\u00e9e \u2713');}).catch(function(){prompt('Copiez cette URL :',url);});}
-async function hTogAdm(){if(!isAdmin()){toast('Acc\u00e8s refus\u00e9','err');return;}var pin=gv('apm'),e=document.getElementById('ame');if(pin!==DB.config.pin){if(e){e.textContent='PIN incorrect.';}return;}adminMode=!adminMode;updateAdminBanner();toast(adminMode?'Mode admin activ\u00e9':'Mode admin d\u00e9sactiv\u00e9');render();}
-async function hAdmReset(){var p=gv('ap'),n=gv('anp'),pin=gv('apin'),r=await admReset(p,n,pin),e=document.getElementById('ae');if(e){e.textContent=r.ok?'R\u00e9initialis\u00e9 !':r.msg;e.style.color=r.ok?'var(--grn)':'var(--red)';}if(r.ok)toast('Mot de passe r\u00e9initialis\u00e9 \u2713');}
-async function hDelUser(){if(!isAdmin()){toast('Acc\u00e8s refus\u00e9','err');return;}var pseudo=gv('dup').trim().toLowerCase(),pin=gv('dpin'),e=document.getElementById('de');if(!pseudo){if(e){e.textContent='Entre un pseudo.';e.style.color='var(--red)';}return;}if(pin!==DB.config.pin){if(e){e.textContent='PIN incorrect.';e.style.color='var(--red)';}return;}if(pseudo===ADMIN){if(e){e.textContent='Impossible.';e.style.color='var(--red)';}return;}var uu=DB.userMap[pseudo];if(!uu){if(e){e.textContent='Joueur introuvable.';e.style.color='var(--red)';}return;}await sb.from('users').delete().eq('id',uu.id);DB.users=DB.users.filter(function(u){return u.id!==uu.id;});delete DB.userMap[pseudo];delete DB.pronos[pseudo];toast('Compte supprim\u00e9');render();}
-async function hChgPin(){var o=gv('opin'),n=gv('npin'),e=document.getElementById('pe');if(o!==DB.config.pin){if(e){e.textContent='PIN actuel incorrect.';e.style.color='var(--red)';}return;}if(!n||n.length<3){if(e){e.textContent='PIN trop court.';e.style.color='var(--red)';}return;}await saveConfig('pin',n);if(e){e.textContent='PIN modifi\u00e9 \u2713';e.style.color='var(--grn)';}}
-async function hSaveKey(){var k=gv('apikey').trim();await saveConfig('apikey',k);toast('Cl\u00e9 API enregistr\u00e9e \u2713');var e=document.getElementById('synce');if(e)e.textContent='Cl\u00e9 sauvegard\u00e9e.';}
-</script>
-
-<script>
-var GR={
-A:["Mexique","Afrique du Sud","R\u00e9publique de Cor\u00e9e","Tch\u00e9quie"],
-B:["Canada","Bosnie-et-Herz\u00e9govine","Qatar","Suisse"],
-C:["Br\u00e9sil","Maroc","Ha\u00efti","\u00c9cosse"],
-D:["\u00c9tats-Unis","Paraguay","Australie","Turquie"],
-E:["Allemagne","Cura\u00e7ao","C\u00f4te d'Ivoire","\u00c9quateur"],
-F:["Pays-Bas","Japon","Su\u00e8de","Tunisie"],
-G:["Belgique","\u00c9gypte","RI Iran","Nouvelle-Z\u00e9lande"],
-H:["Espagne","Cap-Vert","Arabie saoudite","Uruguay"],
-I:["France","S\u00e9n\u00e9gal","Irak","Norv\u00e8ge"],
-J:["Argentine","Alg\u00e9rie","Autriche","Jordanie"],
-K:["Portugal","RD Congo","Ouzb\u00e9kistan","Colombie"],
-L:["Angleterre","Croatie","Ghana","Pana\u006d\u00e1"]
-};
-var FL={"Mexique":"🇲🇽","Afrique du Sud":"🇿🇦","République de Corée":"🇰🇷","Tchéquie":"🇨🇿","Canada":"🇨🇦","Bosnie-et-Herzégovine":"🇧🇦","Qatar":"🇶🇦","Suisse":"🇨🇭","Brésil":"🇧🇷","Maroc":"🇲🇦","Haïti":"🇭🇹","Écosse":"🏴󠁧󠁢󠁳󠁣󠁴󠁿","États-Unis":"🇺🇸","Paraguay":"🇵🇾","Australie":"🇦🇺","Turquie":"🇹🇷","Allemagne":"🇩🇪","Curaçao":"🇨🇼","Côte d'Ivoire":"🇨🇮","Équateur":"🇪🇨","Pays-Bas":"🇳🇱","Japon":"🇯🇵","Suède":"🇸🇪","Tunisie":"🇹🇳","Belgique":"🇧🇪","Égypte":"🇪🇬","RI Iran":"🇮🇷","Nouvelle-Zélande":"🇳🇿","Espagne":"🇪🇸","Cap-Vert":"🇨🇻","Arabie saoudite":"🇸🇦","Uruguay":"🇺🇾","France":"🇫🇷","Sénégal":"🇸🇳","Irak":"🇮🇶","Norvège":"🇳🇴","Argentine":"🇦🇷","Algérie":"🇩🇿","Autriche":"🇦🇹","Jordanie":"🇯🇴","Portugal":"🇵🇹","RD Congo":"🇨🇩","Ouzbékistan":"🇺🇿","Colombie":"🇨🇴","Angleterre":"🏴󠁧󠁢󠁥󠁮󠁧󠁿","Croatie":"🇭🇷","Ghana":"🇬🇭","Panamá":"🇵🇦"};
-var TV={1:"M6 & beIN Sports",2:"beIN Sports",3:"M6 & beIN Sports",4:"beIN Sports",5:"M6 & beIN Sports",6:"M6 & beIN Sports",7:"beIN Sports",8:"beIN Sports",9:"M6 & beIN Sports",10:"M6 & beIN Sports",11:"beIN Sports",12:"beIN Sports",13:"M6 & beIN Sports",14:"M6 & beIN Sports",15:"M6 & beIN Sports",16:"beIN Sports",17:"M6 & beIN Sports",18:"M6 & beIN Sports",19:"beIN Sports",20:"beIN Sports",21:"M6 & beIN Sports",22:"M6 & beIN Sports",23:"beIN Sports",24:"beIN Sports",25:"M6 & beIN Sports",26:"M6 & beIN Sports",27:"beIN Sports",28:"beIN Sports",29:"M6 & beIN Sports",30:"M6 & beIN Sports",31:"M6 & beIN Sports",32:"beIN Sports",33:"M6 & beIN Sports",34:"M6 & beIN Sports",35:"beIN Sports",36:"beIN Sports",37:"M6 & beIN Sports",38:"M6 & beIN Sports",39:"beIN Sports",40:"beIN Sports",41:"M6 & beIN Sports",42:"M6 & beIN Sports",43:"beIN Sports",44:"beIN Sports",45:"M6 & beIN Sports",46:"M6 & beIN Sports",47:"beIN Sports",48:"beIN Sports",49:"M6 & beIN Sports",50:"beIN Sports",51:"M6 & beIN Sports",52:"beIN Sports",53:"beIN Sports",54:"beIN Sports",55:"beIN Sports",56:"M6 & beIN Sports",57:"beIN Sports",58:"M6 & beIN Sports",59:"beIN Sports",60:"beIN Sports",61:"M6 & beIN Sports",62:"beIN Sports",63:"beIN Sports",64:"M6 & beIN Sports",65:"beIN Sports",66:"beIN Sports",67:"M6 & beIN Sports",68:"beIN Sports",69:"M6 & beIN Sports",70:"beIN Sports",71:"beIN Sports",72:"beIN Sports"};
-var APIMAP={"Mexico":"Mexique","South Africa":"Afrique du Sud","Korea Republic":"République de Corée","Czechia":"Tchéquie","Czech Republic":"Tchéquie","Canada":"Canada","Bosnia and Herzegovina":"Bosnie-et-Herzégovine","Qatar":"Qatar","Switzerland":"Suisse","Brazil":"Brésil","Morocco":"Maroc","Haiti":"Haïti","Scotland":"Écosse","USA":"États-Unis","United States":"États-Unis","Paraguay":"Paraguay","Australia":"Australie","Turkey":"Turquie","Germany":"Allemagne","Curacao":"Curaçao","Ivory Coast":"Côte d'Ivoire","Cote d'Ivoire":"Côte d'Ivoire","Ecuador":"Équateur","Netherlands":"Pays-Bas","Japan":"Japon","Sweden":"Suède","Tunisia":"Tunisie","Belgium":"Belgique","Egypt":"Égypte","Iran":"RI Iran","New Zealand":"Nouvelle-Zélande","Spain":"Espagne","Cape Verde":"Cap-Vert","Saudi Arabia":"Arabie saoudite","Uruguay":"Uruguay","France":"France","Senegal":"Sénégal","Iraq":"Irak","Norway":"Norvège","Argentina":"Argentine","Algeria":"Algérie","Austria":"Autriche","Jordan":"Jordanie","Portugal":"Portugal","DR Congo":"RD Congo","Congo DR":"RD Congo","Uzbekistan":"Ouzbékistan","Colombia":"Colombie","England":"Angleterre","Croatia":"Croatie","Ghana":"Ghana","Panama":"Panamá"};
-var M=[
-{id:1,ph:"POULES",gr:"A",dt:"2026-06-11",ti:"21:00",h:"Mexique",a:"Afrique du Sud",v:"Mexico City"},
-{id:2,ph:"POULES",gr:"A",dt:"2026-06-12",ti:"04:00",h:"République de Corée",a:"Tchéquie",v:"Guadalajara"},
-{id:3,ph:"POULES",gr:"B",dt:"2026-06-12",ti:"21:00",h:"Canada",a:"Bosnie-et-Herzégovine",v:"Toronto"},
-{id:4,ph:"POULES",gr:"D",dt:"2026-06-13",ti:"03:00",h:"États-Unis",a:"Paraguay",v:"Los Angeles"},
-{id:5,ph:"POULES",gr:"B",dt:"2026-06-13",ti:"21:00",h:"Qatar",a:"Suisse",v:"San Francisco"},
-{id:6,ph:"POULES",gr:"C",dt:"2026-06-14",ti:"00:00",h:"Brésil",a:"Maroc",v:"New York"},
-{id:7,ph:"POULES",gr:"C",dt:"2026-06-14",ti:"03:00",h:"Haïti",a:"Écosse",v:"Boston"},
-{id:8,ph:"POULES",gr:"D",dt:"2026-06-14",ti:"06:00",h:"Australie",a:"Turquie",v:"Vancouver"},
-{id:9,ph:"POULES",gr:"E",dt:"2026-06-14",ti:"19:00",h:"Allemagne",a:"Curaçao",v:"Houston"},
-{id:10,ph:"POULES",gr:"F",dt:"2026-06-14",ti:"22:00",h:"Pays-Bas",a:"Japon",v:"Dallas"},
-{id:11,ph:"POULES",gr:"E",dt:"2026-06-15",ti:"01:00",h:"Côte d\'Ivoire",a:"Équateur",v:"Philadelphie"},
-{id:12,ph:"POULES",gr:"F",dt:"2026-06-15",ti:"04:00",h:"Suède",a:"Tunisie",v:"Monterrey"},
-{id:13,ph:"POULES",gr:"H",dt:"2026-06-15",ti:"18:00",h:"Espagne",a:"Cap-Vert",v:"Atlanta"},
-{id:14,ph:"POULES",gr:"G",dt:"2026-06-15",ti:"21:00",h:"Belgique",a:"Égypte",v:"Seattle"},
-{id:15,ph:"POULES",gr:"H",dt:"2026-06-16",ti:"00:00",h:"Arabie saoudite",a:"Uruguay",v:"Miami"},
-{id:16,ph:"POULES",gr:"G",dt:"2026-06-16",ti:"03:00",h:"RI Iran",a:"Nouvelle-Zélande",v:"Los Angeles"},
-{id:17,ph:"POULES",gr:"I",dt:"2026-06-16",ti:"21:00",h:"France",a:"Sénégal",v:"New York"},
-{id:18,ph:"POULES",gr:"I",dt:"2026-06-17",ti:"00:00",h:"Irak",a:"Norvège",v:"Boston"},
-{id:19,ph:"POULES",gr:"J",dt:"2026-06-17",ti:"03:00",h:"Argentine",a:"Algérie",v:"Kansas City"},
-{id:20,ph:"POULES",gr:"J",dt:"2026-06-17",ti:"06:00",h:"Autriche",a:"Jordanie",v:"San Francisco"},
-{id:21,ph:"POULES",gr:"K",dt:"2026-06-17",ti:"19:00",h:"Portugal",a:"RD Congo",v:"Houston"},
-{id:22,ph:"POULES",gr:"L",dt:"2026-06-17",ti:"22:00",h:"Angleterre",a:"Croatie",v:"Dallas"},
-{id:23,ph:"POULES",gr:"L",dt:"2026-06-18",ti:"01:00",h:"Ghana",a:"Panamá",v:"Toronto"},
-{id:24,ph:"POULES",gr:"K",dt:"2026-06-18",ti:"04:00",h:"Ouzbékistan",a:"Colombie",v:"Mexico City"},
-{id:25,ph:"POULES",gr:"A",dt:"2026-06-18",ti:"18:00",h:"Tchéquie",a:"Afrique du Sud",v:"Atlanta"},
-{id:26,ph:"POULES",gr:"B",dt:"2026-06-18",ti:"21:00",h:"Suisse",a:"Bosnie-et-Herzégovine",v:"Los Angeles"},
-{id:27,ph:"POULES",gr:"B",dt:"2026-06-19",ti:"00:00",h:"Canada",a:"Qatar",v:"Vancouver"},
-{id:28,ph:"POULES",gr:"A",dt:"2026-06-19",ti:"03:00",h:"Mexique",a:"République de Corée",v:"Guadalajara"},
-{id:29,ph:"POULES",gr:"D",dt:"2026-06-19",ti:"21:00",h:"États-Unis",a:"Australie",v:"Seattle"},
-{id:30,ph:"POULES",gr:"C",dt:"2026-06-20",ti:"00:00",h:"Écosse",a:"Maroc",v:"Boston"},
-{id:31,ph:"POULES",gr:"C",dt:"2026-06-20",ti:"02:30",h:"Brésil",a:"Haïti",v:"Philadelphie"},
-{id:32,ph:"POULES",gr:"D",dt:"2026-06-20",ti:"05:00",h:"Turquie",a:"Paraguay",v:"San Francisco"},
-{id:33,ph:"POULES",gr:"F",dt:"2026-06-20",ti:"19:00",h:"Pays-Bas",a:"Suède",v:"Houston"},
-{id:34,ph:"POULES",gr:"E",dt:"2026-06-20",ti:"22:00",h:"Allemagne",a:"Côte d\'Ivoire",v:"Toronto"},
-{id:35,ph:"POULES",gr:"E",dt:"2026-06-21",ti:"02:00",h:"Équateur",a:"Curaçao",v:"Kansas City"},
-{id:36,ph:"POULES",gr:"F",dt:"2026-06-21",ti:"06:00",h:"Tunisie",a:"Japon",v:"Monterrey"},
-{id:37,ph:"POULES",gr:"H",dt:"2026-06-21",ti:"18:00",h:"Espagne",a:"Arabie saoudite",v:"Atlanta"},
-{id:38,ph:"POULES",gr:"G",dt:"2026-06-21",ti:"21:00",h:"Belgique",a:"RI Iran",v:"Los Angeles"},
-{id:39,ph:"POULES",gr:"H",dt:"2026-06-22",ti:"00:00",h:"Uruguay",a:"Cap-Vert",v:"Miami"},
-{id:40,ph:"POULES",gr:"G",dt:"2026-06-22",ti:"03:00",h:"Nouvelle-Zélande",a:"Égypte",v:"Vancouver"},
-{id:41,ph:"POULES",gr:"J",dt:"2026-06-22",ti:"19:00",h:"Argentine",a:"Autriche",v:"Dallas"},
-{id:42,ph:"POULES",gr:"I",dt:"2026-06-22",ti:"23:00",h:"France",a:"Irak",v:"Philadelphie"},
-{id:43,ph:"POULES",gr:"I",dt:"2026-06-23",ti:"02:00",h:"Norvège",a:"Sénégal",v:"New York"},
-{id:44,ph:"POULES",gr:"J",dt:"2026-06-23",ti:"05:00",h:"Jordanie",a:"Algérie",v:"San Francisco"},
-{id:45,ph:"POULES",gr:"K",dt:"2026-06-23",ti:"19:00",h:"Portugal",a:"Ouzbékistan",v:"Houston"},
-{id:46,ph:"POULES",gr:"L",dt:"2026-06-23",ti:"22:00",h:"Angleterre",a:"Ghana",v:"Boston"},
-{id:47,ph:"POULES",gr:"L",dt:"2026-06-24",ti:"01:00",h:"Panamá",a:"Croatie",v:"Toronto"},
-{id:48,ph:"POULES",gr:"K",dt:"2026-06-24",ti:"04:00",h:"Colombie",a:"RD Congo",v:"Guadalajara"},
-{id:49,ph:"POULES",gr:"B",dt:"2026-06-24",ti:"21:00",h:"Suisse",a:"Canada",v:"Vancouver"},
-{id:50,ph:"POULES",gr:"B",dt:"2026-06-24",ti:"21:00",h:"Bosnie-et-Herzégovine",a:"Qatar",v:"Seattle"},
-{id:51,ph:"POULES",gr:"C",dt:"2026-06-25",ti:"00:00",h:"Écosse",a:"Brésil",v:"Miami"},
-{id:52,ph:"POULES",gr:"C",dt:"2026-06-25",ti:"00:00",h:"Maroc",a:"Haïti",v:"Atlanta"},
-{id:53,ph:"POULES",gr:"A",dt:"2026-06-25",ti:"03:00",h:"Tchéquie",a:"Mexique",v:"Mexico City"},
-{id:54,ph:"POULES",gr:"A",dt:"2026-06-25",ti:"03:00",h:"Afrique du Sud",a:"République de Corée",v:"Monterrey"},
-{id:55,ph:"POULES",gr:"E",dt:"2026-06-25",ti:"22:00",h:"Curaçao",a:"Côte d\'Ivoire",v:"Philadelphie"},
-{id:56,ph:"POULES",gr:"E",dt:"2026-06-25",ti:"22:00",h:"Équateur",a:"Allemagne",v:"New York"},
-{id:57,ph:"POULES",gr:"F",dt:"2026-06-26",ti:"01:00",h:"Japon",a:"Suède",v:"Dallas"},
-{id:58,ph:"POULES",gr:"F",dt:"2026-06-26",ti:"01:00",h:"Tunisie",a:"Pays-Bas",v:"Kansas City"},
-{id:59,ph:"POULES",gr:"D",dt:"2026-06-26",ti:"04:00",h:"Turquie",a:"États-Unis",v:"Los Angeles"},
-{id:60,ph:"POULES",gr:"D",dt:"2026-06-26",ti:"04:00",h:"Paraguay",a:"Australie",v:"San Francisco"},
-{id:61,ph:"POULES",gr:"I",dt:"2026-06-26",ti:"21:00",h:"Norvège",a:"France",v:"Boston"},
-{id:62,ph:"POULES",gr:"I",dt:"2026-06-26",ti:"21:00",h:"Sénégal",a:"Irak",v:"Toronto"},
-{id:63,ph:"POULES",gr:"H",dt:"2026-06-27",ti:"02:00",h:"Cap-Vert",a:"Arabie saoudite",v:"Houston"},
-{id:64,ph:"POULES",gr:"H",dt:"2026-06-27",ti:"02:00",h:"Uruguay",a:"Espagne",v:"Guadalajara"},
-{id:65,ph:"POULES",gr:"G",dt:"2026-06-27",ti:"05:00",h:"Égypte",a:"RI Iran",v:"Seattle"},
-{id:66,ph:"POULES",gr:"G",dt:"2026-06-27",ti:"05:00",h:"Nouvelle-Zélande",a:"Belgique",v:"Vancouver"},
-{id:67,ph:"POULES",gr:"L",dt:"2026-06-27",ti:"23:00",h:"Panamá",a:"Angleterre",v:"New York"},
-{id:68,ph:"POULES",gr:"L",dt:"2026-06-27",ti:"23:00",h:"Croatie",a:"Ghana",v:"Philadelphie"},
-{id:69,ph:"POULES",gr:"K",dt:"2026-06-28",ti:"01:30",h:"Colombie",a:"Portugal",v:"Miami"},
-{id:70,ph:"POULES",gr:"K",dt:"2026-06-28",ti:"01:30",h:"RD Congo",a:"Ouzbékistan",v:"Atlanta"},
-{id:71,ph:"POULES",gr:"J",dt:"2026-06-28",ti:"04:00",h:"Algérie",a:"Autriche",v:"Kansas City"},
-{id:72,ph:"POULES",gr:"J",dt:"2026-06-28",ti:"04:00",h:"Jordanie",a:"Argentine",v:"Dallas"},
-{id:73,ph:"BARRAGES",gr:null,dt:"2026-06-28",ti:"21:00",h:"2A",a:"2B",v:"Los Angeles"},
-{id:74,ph:"BARRAGES",gr:null,dt:"2026-06-29",ti:"19:00",h:"1C",a:"2F",v:"Houston"},
-{id:75,ph:"BARRAGES",gr:null,dt:"2026-06-29",ti:"22:30",h:"1E",a:"3ABCDF",v:"Boston"},
-{id:76,ph:"BARRAGES",gr:null,dt:"2026-06-30",ti:"03:00",h:"1F",a:"2C",v:"Monterrey"},
-{id:77,ph:"BARRAGES",gr:null,dt:"2026-06-30",ti:"19:00",h:"2E",a:"2I",v:"Dallas"},
-{id:78,ph:"BARRAGES",gr:null,dt:"2026-06-30",ti:"23:00",h:"1I",a:"3CDFGH",v:"New York"},
-{id:79,ph:"BARRAGES",gr:null,dt:"2026-07-01",ti:"03:00",h:"1A",a:"3CEFHI",v:"Mexico City"},
-{id:80,ph:"BARRAGES",gr:null,dt:"2026-07-01",ti:"18:00",h:"1L",a:"3EHIJK",v:"Atlanta"},
-{id:81,ph:"BARRAGES",gr:null,dt:"2026-07-01",ti:"22:00",h:"1G",a:"3AEHIJ",v:"Seattle"},
-{id:82,ph:"BARRAGES",gr:null,dt:"2026-07-02",ti:"02:00",h:"1D",a:"3BEFIJ",v:"San Francisco"},
-{id:83,ph:"BARRAGES",gr:null,dt:"2026-07-02",ti:"21:00",h:"1H",a:"2J",v:"Los Angeles"},
-{id:84,ph:"BARRAGES",gr:null,dt:"2026-07-03",ti:"01:00",h:"2K",a:"2L",v:"Toronto"},
-{id:85,ph:"BARRAGES",gr:null,dt:"2026-07-03",ti:"05:00",h:"1B",a:"3EFGIJ",v:"Vancouver"},
-{id:86,ph:"BARRAGES",gr:null,dt:"2026-07-03",ti:"20:00",h:"2D",a:"2G",v:"Dallas"},
-{id:87,ph:"BARRAGES",gr:null,dt:"2026-07-04",ti:"00:00",h:"1J",a:"2H",v:"Miami"},
-{id:88,ph:"BARRAGES",gr:null,dt:"2026-07-04",ti:"03:30",h:"1K",a:"3DEIJL",v:"Kansas City"},
-{id:89,ph:"HUITIÈMES",gr:null,dt:"2026-07-04",ti:"19:00",h:"W73",a:"W75",v:"Houston"},
-{id:90,ph:"HUITIÈMES",gr:null,dt:"2026-07-04",ti:"23:00",h:"W74",a:"W77",v:"Philadelphie"},
-{id:91,ph:"HUITIÈMES",gr:null,dt:"2026-07-05",ti:"22:00",h:"W76",a:"W78",v:"New York"},
-{id:92,ph:"HUITIÈMES",gr:null,dt:"2026-07-06",ti:"02:00",h:"W79",a:"W80",v:"Mexico City"},
-{id:93,ph:"HUITIÈMES",gr:null,dt:"2026-07-06",ti:"21:00",h:"W83",a:"W84",v:"Dallas"},
-{id:94,ph:"HUITIÈMES",gr:null,dt:"2026-07-07",ti:"02:00",h:"W81",a:"W82",v:"Seattle"},
-{id:95,ph:"HUITIÈMES",gr:null,dt:"2026-07-07",ti:"18:00",h:"W86",a:"W88",v:"Atlanta"},
-{id:96,ph:"HUITIÈMES",gr:null,dt:"2026-07-07",ti:"22:00",h:"W85",a:"W87",v:"Vancouver"},
-{id:97,ph:"QUARTS",gr:null,dt:"2026-07-09",ti:"22:00",h:"W89",a:"W90",v:"Boston"},
-{id:98,ph:"QUARTS",gr:null,dt:"2026-07-10",ti:"21:00",h:"W93",a:"W94",v:"Los Angeles"},
-{id:99,ph:"QUARTS",gr:null,dt:"2026-07-11",ti:"23:00",h:"W91",a:"W92",v:"Miami"},
-{id:100,ph:"QUARTS",gr:null,dt:"2026-07-12",ti:"03:00",h:"W95",a:"W96",v:"Kansas City"},
-{id:101,ph:"DEMIS",gr:null,dt:"2026-07-14",ti:"21:00",h:"W97",a:"W98",v:"Dallas"},
-{id:102,ph:"DEMIS",gr:null,dt:"2026-07-15",ti:"21:00",h:"W99",a:"W100",v:"Atlanta"},
-{id:103,ph:"PETITE FINALE",gr:null,dt:"2026-07-18",ti:"23:00",h:"RU101",a:"RU102",v:"Miami"},
-{id:104,ph:"FINALE",gr:null,dt:"2026-07-19",ti:"21:00",h:"W101",a:"W102",v:"New York"}
-];
-
-/* ═══════════════════════════════════════════════
-   CONFIGURATION — modifier ces 2 lignes
-═══════════════════════════════════════════════ */
-var SUPABASE_URL = 'https://rkbrrndpajczwrhpjoaw.supabase.co';
-var SUPABASE_KEY = 'sb_publishable_vcRpMaKi9Ocqv0evibJ54w_eX6f3Ts8';
-
-/* ═══════════════════════════════════════════════
-   CONSTANTES
-═══════════════════════════════════════════════ */
-var ADMIN = 'adminprono';
-var EMERGENCY_CODE = 'CDM2026RESCUE';
-
-/* ═══════════════════════════════════════════════
-   ÉTAT APPLICATION
-═══════════════════════════════════════════════ */
-var GROUP_ID = (typeof URLSearchParams !== 'undefined') ? (new URLSearchParams(window.location.search).get('g') || null) : null;
-var S = {user:null, page:'accueil', tab:'POULES', grp:'ALL', cpw:false, adm:false, qf:'all'};
-var adminMode = false;
-var logoClicks = 0, logoTimer = null;
-var syncTimer = null;
-
-/* ═══════════════════════════════════════════════
-   CACHE BASE DE DONNÉES
-═══════════════════════════════════════════════ */
-var DB = {
-  users: [],
-  userMap: {},
-  pronos: {},
-  results: {},
-  config: {pin:'1234', apikey:''}
-};
-
-/* ═══════════════════════════════════════════════
-   SUPABASE CLIENT
-═══════════════════════════════════════════════ */
-var sb = null;
-var SB_ERROR = '';
-function initSB() {
-  if (SUPABASE_URL === 'VOTRE_URL_SUPABASE' || !SUPABASE_URL) {
-    SB_ERROR = 'URL Supabase non configurée';
-    return false;
-  }
-  if (!SUPABASE_KEY || SUPABASE_KEY === 'VOTRE_CLE_ANON') {
-    SB_ERROR = 'Clé API Supabase non configurée';
-    return false;
-  }
-  if (typeof supabase === 'undefined' || typeof supabase.createClient !== 'function') {
-    SB_ERROR = 'Bibliothèque Supabase non chargée (problème réseau ou CDN)';
-    return false;
-  }
-  try {
-    sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-    SB_ERROR = '';
-    return true;
-  } catch(e) {
-    SB_ERROR = 'Erreur initialisation: ' + e.message;
-    console.error('Supabase init error:', e);
-    return false;
-  }
-}
-
-/* ═══════════════════════════════════════════════
-   CHARGEMENT DES DONNÉES
-═══════════════════════════════════════════════ */
-async function loadAll() {
-  if (!sb) return;
-  try {
-    // Admin voit tout, sinon filtre par groupe
-    var rU, rUg = null;
-    var loggedSes = localStorage.getItem('cdm_ses');
-    var isAdminSession = (loggedSes === ADMIN);
-    if (GROUP_ID && !isAdminSession) {
-      rU  = await sb.from('users').select('*').eq('pseudo_key', ADMIN);
-      rUg = await sb.from('users').select('*').eq('group_id', GROUP_ID);
-    } else {
-      rU = await sb.from('users').select('*');
+  else if (S.adminTab === 'joueurs') {
+    var grpMap2={};
+    DB.groups.forEach(function(g){ grpMap2[g.id]=g.name; });
+    var realUsers=DB.users.filter(function(u){return u.pseudo_key!==ADMIN;});
+    var userTableH='';
+    if(!realUsers.length){ userTableH='<p style="color:var(--muted);font-size:.8rem">Aucun joueur inscrit.</p>'; }
+    else {
+      userTableH='<div style="overflow-y:auto;max-height:320px"><table style="width:100%;border-collapse:collapse;font-size:.78rem">'
+        +'<thead><tr>'
+        +'<th style="text-align:left;padding:6px 10px;color:var(--muted);border-bottom:1px solid var(--bdr)">Pseudo</th>'
+        +'<th style="text-align:left;padding:6px 10px;color:var(--muted);border-bottom:1px solid var(--bdr)">Groupe</th>'
+        +'<th style="text-align:right;padding:6px 10px;color:var(--muted);border-bottom:1px solid var(--bdr)">Points</th>'
+        +'<th style="padding:6px 10px;border-bottom:1px solid var(--bdr)"></th>'
+        +'</tr></thead><tbody>';
+      realUsers.forEach(function(u){
+        var ugname=u.group_id?(grpMap2[u.group_id]||u.group_id):'<span style="color:var(--muted)">\u2014</span>';
+        var upts=pts(u.pseudo_key).p;
+        userTableH+='<tr style="border-bottom:1px solid var(--bdr)">'
+          +'<td style="padding:6px 10px;font-weight:600">'+u.pseudo_display+'</td>'
+          +'<td style="padding:6px 10px;color:var(--gold)">'+ugname+'</td>'
+          +'<td style="padding:6px 10px;text-align:right;font-weight:700">'+upts+'</td>'
+          +'<td style="padding:6px 10px;text-align:right"><span class="xbtn" data-k="'+u.pseudo_key+'" style="cursor:pointer;color:var(--muted)">&#128465;</span></td>'
+          +'</tr>';
+      });
+      userTableH+='</tbody></table></div>';
     }
-    var rP = await sb.from('pronos').select('*');
-    var rR = await sb.from('results').select('*');
-    var rC = await sb.from('config').select('*');
-    var rG = await sb.from('groups').select('*').order('created_at');
-    if (rU.error) console.warn('users:', rU.error.message);
-    if (rP.error) console.warn('pronos:', rP.error.message);
-    if (rR.error) console.warn('results:', rR.error.message);
-    if (rC.error) console.warn('config:', rC.error.message);
-    if (rG.error) console.warn('groups (may not exist yet):', rG.error.message);
-    var users = rU.data || [];
-    if (rUg && rUg.data) {
-      // Merge: admin + group users (deduplicate)
-      var seen = {};
-      users.forEach(function(u){ seen[u.id]=true; });
-      rUg.data.forEach(function(u){ if(!seen[u.id]) users.push(u); });
-    }
-    var pronos = rP.data || [];
-    var results= rR.data || [];
-    var config = rC.data || [];
-    DB.groups  = rG.data || [];
-    if (GROUP_ID && !isAdmin()) {
-      var gids = users.map(function(u){return u.id;});
-      pronos = pronos.filter(function(p){return gids.indexOf(p.user_id)>-1;});
-    }
-    DB.users = users;
-    DB.userMap = {};
-    for (var i=0; i<users.length; i++) DB.userMap[users[i].pseudo_key] = users[i];
-    DB.pronos = {};
-    for (var i=0; i<users.length; i++) DB.pronos[users[i].pseudo_key] = {};
-    for (var i=0; i<pronos.length; i++) {
-      var p = pronos[i];
-      var uid = p.user_id;
-      var owner = null;
-      for (var j=0; j<users.length; j++) { if (users[j].id === uid) { owner = users[j]; break; } }
-      if (owner) {
-        if (!DB.pronos[owner.pseudo_key]) DB.pronos[owner.pseudo_key] = {};
-        DB.pronos[owner.pseudo_key][p.match_id] = {h: p.home_score, a: p.away_score};
-      }
-    }
-    DB.results = {};
-    for (var i=0; i<results.length; i++) DB.results[results[i].match_id] = {h: results[i].home_score, a: results[i].away_score};
-    for (var i=0; i<config.length; i++) DB.config[config[i].key] = config[i].value;
-  } catch(e) { toast('Erreur de chargement: ' + e.message, 'err'); }
-}
-
-async function reloadPronos() {
-  if (!sb) return;
-  var r = await sb.from('pronos').select('*');
-  var pronos = r.data || [];
-  for (var k in DB.pronos) DB.pronos[k] = {};
-  for (var i=0; i<pronos.length; i++) {
-    var p = pronos[i], owner = null;
-    for (var j=0; j<DB.users.length; j++) { if (DB.users[j].id === p.user_id) { owner = DB.users[j]; break; } }
-    if (owner) {
-      if (!DB.pronos[owner.pseudo_key]) DB.pronos[owner.pseudo_key] = {};
-      DB.pronos[owner.pseudo_key][p.match_id] = {h: p.home_score, a: p.away_score};
-    }
+    panelContent = '<p style="font-size:.78rem;color:var(--muted);margin-bottom:10px">'+realUsers.length+' joueur(s) inscrit(s)</p>'
+      +userTableH
+      +'<hr class="hr2">'
+      +'<h4 style="margin-bottom:8px">&#128737; R\u00e9initialisation mdp</h4>'
+      +'<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">'
+      +'<input class="fi" id="ap" placeholder="Pseudo" style="flex:1;min-width:120px">'
+      +'<input class="fi" id="anp" type="password" placeholder="Nouveau mdp" style="flex:1;min-width:120px">'
+      +'<input class="fi" id="apin" type="password" placeholder="PIN" style="width:90px">'
+      +'<button class="btn-g" onclick="hAdmReset()">OK</button></div>'
+      +'<div id="ae" style="font-size:.78rem;margin-bottom:6px"></div>'
+      +'<hr class="hr2">'
+      +'<h4 style="margin-bottom:8px">&#128465; Supprimer un compte</h4>'
+      +'<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">'
+      +'<input class="fi" id="dup" placeholder="Pseudo" style="flex:1;min-width:140px">'
+      +'<input class="fi" id="dpin" type="password" placeholder="PIN" style="width:90px">'
+      +'<button class="btn-r" onclick="hDelUser()">&#128465;</button></div>'
+      +'<div id="de" style="font-size:.78rem;margin-bottom:4px"></div>';
   }
-}
 
-/* ═══════════════════════════════════════════════
-   REALTIME
-═══════════════════════════════════════════════ */
-function setupRealtime() {
-  if (!sb) return;
-  try {
-    sb.channel('db-live')
-      .on('postgres_changes', {event:'*', schema:'public', table:'results'}, function(payload) {
-        setTimeout(function() {
-          if (payload.eventType === 'DELETE') { delete DB.results[payload.old.match_id]; }
-          else { DB.results[payload.new.match_id] = {h:payload.new.home_score, a:payload.new.away_score}; if(!isAdmin()) toast('Score mis à jour ! ⚡'); }
-          render();
-        }, 0);
-      })
-      .on('postgres_changes', {event:'*', schema:'public', table:'pronos'}, function() {
-        setTimeout(function() { reloadPronos().then(function(){ if(S.page==='classement'||S.page==='accueil') render(); }); }, 0);
-      })
-      .subscribe();
-  } catch(e) { console.warn('Realtime non disponible:', e.message); }
-}
-
-/* ═══════════════════════════════════════════════
-   UTILITAIRES
-═══════════════════════════════════════════════ */
-function hsh(s) { var h=5381; for(var i=0;i<s.length;i++) h=((h<<5)+h)^s.charCodeAt(i); return (h>>>0).toString(16); }
-function psd(k) { return DB.userMap[k] ? DB.userMap[k].pseudo_display : k; }
-function isAdmin() { return S.user === ADMIN; }
-function flag(f) { return FL[f] || ''; }
-function tvTag(id) {
-  var t = TV[id]; if (!t) return '';
-  var h = '';
-  if (t.indexOf('M6') > -1) h += '<span class="tv-tag tv-m6">&#128250; M6</span> ';
-  if (t.indexOf('beIN') > -1) h += '<span class="tv-tag tv-bein">&#128250; beIN</span>';
-  return h;
-}
-function gv(id) { var el=document.getElementById(id); return el ? el.value : ''; }
-
-/* ═══════════════════════════════════════════════
-   AUTHENTIFICATION
-═══════════════════════════════════════════════ */
-async function doLogin(pseudo, pw) {
-  if (!pseudo || !pw) return {ok:false, msg:'Remplis tous les champs.'};
-  if (!sb) return {ok:false, msg:'Supabase non configur\u00e9.'};
-  var k = pseudo.toLowerCase().trim(), h = hsh(pw);
-  var existing = DB.userMap[k];
-  if (existing) {
-    if (existing.hash !== h) return {ok:false, msg:'Mot de passe incorrect.'};
-  } else {
-    var gid=(k===ADMIN)?null:GROUP_ID;
-    var insertRes = await fetch(SUPABASE_URL+'/rest/v1/users', {
-      method:'POST',
-      headers:{'Content-Type':'application/json','apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Prefer':'return=representation'},
-      body:JSON.stringify({pseudo_key:k, pseudo_display:pseudo.trim(), hash:h, group_id:gid})
-    }).then(function(r){return r.json().then(function(d){return {ok:r.ok,data:d};});});
-    if (!insertRes.ok) return {ok:false, msg:'Erreur création: '+(insertRes.data.message||JSON.stringify(insertRes.data))};
-    var newUser = Array.isArray(insertRes.data) ? insertRes.data[0] : insertRes.data;
-    DB.users.push(newUser); DB.userMap[k] = newUser; DB.pronos[k] = {};
-  }
-  S.user = k; localStorage.setItem('cdm_ses', k);
-  if (k===ADMIN && GROUP_ID) { try { await loadAll(); } catch(e){} }
-  return {ok:true};
-}
-function doLogout() { S.user=null; adminMode=false; localStorage.removeItem('cdm_ses'); updateAdminBanner(); go('accueil'); }
-async function chgPw(o, n) {
-  var uu = DB.userMap[S.user];
-  if (!uu) return {ok:false, msg:'Introuvable'};
-  if (uu.hash !== hsh(o)) return {ok:false, msg:'Ancien mdp incorrect'};
-  if (n.length < 3) return {ok:false, msg:'Trop court (3 car. min)'};
-  await sb.from('users').update({hash:hsh(n)}).eq('id', uu.id);
-  uu.hash = hsh(n); return {ok:true};
-}
-async function admReset(pseudo, np, pin) {
-  if (pin !== DB.config.pin) return {ok:false, msg:'PIN admin incorrect'};
-  var k = pseudo.toLowerCase().trim(), uu = DB.userMap[k];
-  if (!uu) return {ok:false, msg:'Joueur introuvable'};
-  await sb.from('users').update({hash:hsh(np)}).eq('id', uu.id);
-  uu.hash = hsh(np); return {ok:true};
-}
-
-/* ═══════════════════════════════════════════════
-   PRONOSTICS
-═══════════════════════════════════════════════ */
-async function savePr(id, hv, av) {
-  if (!S.user || !sb) return;
-  var uid = DB.userMap[S.user].id;
-  await sb.from('pronos').upsert({user_id:uid, match_id:+id, home_score:+hv, away_score:+av, updated_at:new Date().toISOString()}, {onConflict:'user_id,match_id'});
-  if (!DB.pronos[S.user]) DB.pronos[S.user] = {};
-  DB.pronos[S.user][id] = {h:+hv, a:+av};
-}
-function uPronos(u) { return DB.pronos[u] || {}; }
-function getRes(id) { return DB.results[id] || null; }
-
-/* ═══════════════════════════════════════════════
-   RÉSULTATS
-═══════════════════════════════════════════════ */
-async function setRes(id, hv, av) {
-  if (!sb) return;
-  await sb.from('results').upsert({match_id:+id, home_score:+hv, away_score:+av, updated_at:new Date().toISOString()});
-  DB.results[id] = {h:+hv, a:+av};
-}
-async function delRes(id) {
-  if (!sb) return;
-  await sb.from('results').delete().eq('match_id', +id);
-  delete DB.results[id];
-}
-
-/* ═══════════════════════════════════════════════
-   CONFIG
-═══════════════════════════════════════════════ */
-async function saveConfig(key, val) {
-  if (!sb) return;
-  await sb.from('config').upsert({key:key, value:val});
-  DB.config[key] = val;
-}
-
-/* ═══════════════════════════════════════════════
-   SCORING
-═══════════════════════════════════════════════ */
-function pts(user) {
-  var pr = uPronos(user), res = DB.results, p=0, ex=0, ok=0, pl=0, ids=Object.keys(pr);
-  for (var i=0; i<ids.length; i++) {
-    var pn=pr[ids[i]], r=res[ids[i]]; if (!r) continue; pl++;
-    if (pn.h===r.h && pn.a===r.a) {p+=3; ex++;}
-    else if (Math.sign(pn.h-pn.a)===Math.sign(r.h-r.a)) {p+=1; ok++;}
-  }
-  return {p:p, ex:ex, ok:ok, pl:pl};
-}
-function ptBadge(id, user) {
-  var pn=uPronos(user)[id], r=getRes(id); if (!pn||!r) return null;
-  if (pn.h===r.h && pn.a===r.a) return 'ex';
-  return Math.sign(pn.h-pn.a)===Math.sign(r.h-r.a) ? 'ok' : 'no';
-}
-function lb() {
-  var arr = [];
-  for (var i=0; i<DB.users.length; i++) {
-    var u = DB.users[i]; if (u.pseudo_key===ADMIN) continue;
-    var st=pts(u.pseudo_key), pr=uPronos(u.pseudo_key);
-    arr.push({k:u.pseudo_key, ps:u.pseudo_display, np:Object.keys(pr).length, p:st.p, ex:st.ex, ok:st.ok, pl:st.pl});
-  }
-  arr.sort(function(a,b){return b.p-a.p||b.ex-a.ex||b.ok-a.ok;});
-  return arr;
-}
-function standings(g) {
-  var teams=GR[g], res=DB.results, tb={};
-  for (var i=0; i<teams.length; i++) tb[teams[i]]={j:0,g:0,n:0,p:0,bp:0,bc:0,d:0,pts:0};
-  for (var mi=0; mi<M.length; mi++) {
-    var m=M[mi]; if (m.ph!=='POULES'||m.gr!==g) continue;
-    var r=res[m.id]; if (!r) continue;
-    var h=r.h,a=r.a;
-    tb[m.h].j++;tb[m.a].j++;tb[m.h].bp+=h;tb[m.h].bc+=a;tb[m.a].bp+=a;tb[m.a].bc+=h;
-    if (h>a){tb[m.h].g++;tb[m.h].pts+=3;tb[m.a].p++;}
-    else if(h<a){tb[m.a].g++;tb[m.a].pts+=3;tb[m.h].p++;}
-    else{tb[m.h].n++;tb[m.h].pts++;tb[m.a].n++;tb[m.a].pts++;}
-    tb[m.h].d=tb[m.h].bp-tb[m.h].bc; tb[m.a].d=tb[m.a].bp-tb[m.a].bc;
-  }
-  var arr=[]; for (var ti=0;ti<teams.length;ti++) arr.push(Object.assign({name:teams[ti]},tb[teams[ti]]));
-  arr.sort(function(a,b){return b.pts-a.pts||b.d-a.d||b.bp-a.bp;});
-  return arr;
-}
-
-/* ═══════════════════════════════════════════════
-   AUTO-SYNC SCORES (football-data.org)
-═══════════════════════════════════════════════ */
-function getMatchesPendingSync() {
-  var now = new Date(), pending = [];
-  for (var i=0; i<M.length; i++) {
-    var m = M[i];
-    if (DB.results[m.id]) continue;
-    var kickoff = new Date(m.dt+'T'+m.ti);
-    var twoHoursLater = new Date(kickoff.getTime() + 2*60*60*1000);
-    if (now >= twoHoursLater) pending.push(m);
-  }
-  return pending;
-}
-async function autoFetch(silent) {
-  var apikey = DB.config.apikey; if (!apikey) { if (!silent) toast('Cl\u00e9 API manquante', 'err'); return; }
-  var pending = getMatchesPendingSync();
-  if (!pending.length) { if (!silent) toast('Aucun match \u00e0 synchroniser'); return; }
-  if (!silent) toast('Synchronisation en cours... (' + pending.length + ' matchs)');
-  try {
-    var resp = await fetch('https://api.football-data.org/v4/competitions/WC/matches?status=FINISHED', {
-      headers: {'X-Auth-Token': apikey}
+  else if (S.adminTab === 'equipes') {
+    var phases=['BARRAGES','HUITIÈMES','QUARTS','DEMIS','PETITE FINALE','FINALE'];
+    var teamsH='<p style="font-size:.75rem;color:var(--muted);margin-bottom:12px;line-height:1.5">Saisissez les vrais noms des \u00e9quipes qualifi\u00e9es. Chaque modification met \u00e0 jour directement la base de donn\u00e9es.</p>';
+    phases.forEach(function(ph){
+      var ms=M.filter(function(m){return m.ph===ph;});
+      if(!ms.length) return;
+      teamsH+='<div style="margin-bottom:14px">'
+        +'<div style="font-size:.75rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">'+ph+'</div>';
+      ms.forEach(function(m){
+        teamsH+='<div style="background:var(--bg);border:1px solid var(--bdr);border-radius:8px;padding:10px;margin-bottom:6px">'
+          +'<div style="font-size:.7rem;color:var(--muted);margin-bottom:6px">&#128197; '+m.dt+' '+m.ti+' &middot; &#128205; '+m.v+'</div>'
+          +'<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">'
+          +'<input class="fi team-inp" data-mid="'+m.id+'" data-side="h" value="" placeholder="'+m.h+'" style="flex:1;min-width:120px;padding:6px 10px;font-size:.82rem">'
+          +'<span style="color:var(--muted);font-weight:700">vs</span>'
+          +'<input class="fi team-inp" data-mid="'+m.id+'" data-side="a" value="" placeholder="'+m.a+'" style="flex:1;min-width:120px;padding:6px 10px;font-size:.82rem">'
+          +'</div></div>';
+      });
+      teamsH+='</div>';
     });
-    if (!resp.ok) throw new Error('HTTP ' + resp.status);
-    var data = await resp.json();
-    var matches = data.matches || [];
-    var updated = 0;
-    for (var i=0; i<matches.length; i++) {
-      var am = matches[i];
-      if (!am.score || !am.score.fullTime) continue;
-      var sc = am.score.fullTime;
-      if (sc.home === null || sc.away === null) continue;
-      var aHome = APIMAP[am.homeTeam.name] || APIMAP[am.homeTeam.shortName] || '';
-      var aAway = APIMAP[am.awayTeam.name] || APIMAP[am.awayTeam.shortName] || '';
-      for (var j=0; j<pending.length; j++) {
-        if (DB.results[pending[j].id]) continue;
-        var hOk = pending[j].h === aHome || (!aHome && pending[j].h.toLowerCase().indexOf((am.homeTeam.shortName||'').toLowerCase()) > -1);
-        var aOk = pending[j].a === aAway || (!aAway && pending[j].a.toLowerCase().indexOf((am.awayTeam.shortName||'').toLowerCase()) > -1);
-        if (hOk && aOk) {
-          await setRes(pending[j].id, sc.home, sc.away);
-          updated++; break;
-        }
-      }
-    }
-    var stillPending = getMatchesPendingSync().length;
-    if (!silent || updated > 0) toast(updated + ' score(s) mis \u00e0 jour \u2713' + (stillPending > 0 ? ' \u2014 ' + stillPending + ' en attente' : ''));
-    if (updated > 0) render();
-    if (stillPending > 0 && !silent) toast(stillPending + ' score(s) non r\u00e9cup\u00e9r\u00e9(s) \u2014 saisie manuelle disponible', 'info');
-  } catch(e) { toast('Erreur API: ' + e.message + ' \u2014 utilisez la saisie manuelle', 'err'); }
-}
-function startAutoSync() {
-  if (syncTimer) clearInterval(syncTimer);
-  syncTimer = setInterval(function() {
-    if (!isAdmin() || !adminMode) return;
-    if (!DB.config.apikey) return;
-    var pending = getMatchesPendingSync();
-    if (pending.length > 0) autoFetch(true);
-  }, 5 * 60 * 1000);
+    panelContent = teamsH
+      +'<button class="btn-g" onclick="hSaveTeams()">&#128190; Sauvegarder les noms</button>'
+      +'<div id="te" style="font-size:.78rem;margin-top:6px"></div>';
+  }
+
+  else if (S.adminTab === 'config') {
+    panelContent = '<h4 style="margin-bottom:8px">&#128273; Changer le PIN admin</h4>'
+      +'<div style="display:flex;gap:8px;flex-wrap:wrap">'
+      +'<input class="fi" id="opin" type="password" placeholder="PIN actuel" style="width:110px">'
+      +'<input class="fi" id="npin" type="password" placeholder="Nouveau PIN" style="width:110px">'
+      +'<button class="btn-g" onclick="hChgPin()">Modifier</button></div>'
+      +'<div id="pe" style="color:var(--red);font-size:.78rem;margin-top:5px"></div>';
+  }
+
+  return h+'<div class="adm-pan">'+atabs+panelContent+'</div></div>';
 }
 
-/* ═══════════════════════════════════════════════
-   NAVIGATION & UI
-═══════════════════════════════════════════════ */
-function go(p) { S.page=p; render(); document.getElementById('sb').classList.remove('open'); document.getElementById('ov').classList.remove('open'); window.scrollTo(0,0); }
-function toast(msg, type) {
-  var t = document.createElement('div');
-  t.className = 'toast' + (type==='err'?' err':type==='ok'?' ok':type==='info'?' info':'');
-  t.textContent = msg;
-  document.getElementById('tc').appendChild(t);
-  setTimeout(function() { if (t.parentNode) t.parentNode.removeChild(t); }, 3500);
-}
-function updateAdminBanner() {
-  var ban = document.getElementById('adm-ban');
-  if (!ban) return;
-  if (adminMode && isAdmin()) {
-    ban.classList.add('on');
-    document.documentElement.style.setProperty('--ban', '32px');
-  } else {
-    ban.classList.remove('on');
-    document.documentElement.style.setProperty('--ban', '0px');
+function pgNoGroup() {
+  if (!S.user || !isAdmin()) {
+    return '<div style="max-width:380px;margin:100px auto;text-align:center">'
+      +'<div style="font-size:3rem;margin-bottom:16px">&#127942;</div>'
+      +'<h1 style="font-size:1.8rem;font-weight:900;margin-bottom:6px">PRONO CDM 26</h1>'
+      +'<p style="color:var(--muted);margin-bottom:24px;font-size:.88rem">Espace administrateur</p>'
+      +'<div style="background:var(--card);border:1px solid var(--bdr);border-radius:12px;padding:24px;text-align:left">'
+      +'<div style="display:flex;flex-direction:column;gap:12px">'
+      +'<input class="fi" id="lp" placeholder="Pseudo admin" autocomplete="username">'
+      +'<div style="position:relative"><input class="fi" id="lpw" type="password" placeholder="Mot de passe" style="width:100%;padding-right:40px">'
+      +'<span id="tpwbtn" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);cursor:pointer;color:var(--muted)">&#128065;</span></div>'
+      +'<button class="btn-g" onclick="hLogin()" style="width:100%">Connexion</button>'
+      +'<div id="lerr" style="color:var(--red);font-size:.78rem;text-align:center"></div>'
+      +'</div></div>'
+      +'</div>';
   }
+  return null;
 }
-function logoClick() {
-  logoClicks++;
-  if (logoTimer) clearTimeout(logoTimer);
-  if (logoClicks >= 5) { logoClicks=0; document.getElementById('emergency-modal').style.display='flex'; return; }
-  logoTimer = setTimeout(function() { logoClicks=0; }, 2000);
-}
-function renderNav() {
-  var items = [
-    {p:'accueil', ic:'&#8962;', lb:'Accueil'},
-    {p:'matchs', ic:'&#128197;', lb:'Matchs'},
-    {p:'classement', ic:'&#8801;', lb:'Classement'},
-    {p:'groupes', ic:'&#128101;', lb:'Groupes'},
-    {p:'profil', ic:'&#128100;', lb:(S.user&&S.user!==ADMIN)?psd(S.user):'Mon profil'}
-  ];
-  var h = '';
-  for (var i=0; i<items.length; i++) {
-    var it = items[i];
-    var nb2=(it.p==='matchs'&&S.user&&S.user!==ADMIN)?pendingCount():0;
-    var nb2H=nb2>0?'<span class="nav-badge">'+nb2+'</span>':'';
-    h += '<div class="ni'+(S.page===it.p?' on':'')+'" onclick="go(\''+it.p+'\')"><span>'+it.ic+'</span> <span>'+it.lb+'</span>'+nb2H+'</div>';
-  }
-  document.getElementById('snav').innerHTML = h;
-  var chip=document.getElementById('grp-chip');
-  if(chip) chip.textContent=currentGroupName()?'&#128101; '+currentGroupName():'';
 
-}
 function render() {
   try {
     renderNav();
-    if (!GROUP_ID && !isAdmin() && S.user && S.user!==ADMIN && sb && S.page!=='profil') {
-      document.getElementById('main').innerHTML=pgNoGroup(); return;
+    // ROOT URL (?g= absent) = admin only
+    if (!GROUP_ID && sb) {
+      if (!isAdmin()) {
+        // Not logged in OR logged in as non-admin → show admin login page
+        var ng = pgNoGroup();
+        if (ng) { document.getElementById('main').innerHTML = ng; return; }
+        // If null returned (admin logged in), fall through to normal render
+      }
     }
-    var pages={accueil:pgAccueil,matchs:pgMatchs,classement:pgClass,groupes:pgGroupes,profil:pgProfil};
+    var pages={accueil:pgAccueil,matchs:pgMatchs,classement:pgClass,groupes:pgGroupes,profil:pgProfil,stats:pgStats};
     var fn = pages[S.page] || pgAccueil;
     document.getElementById('main').innerHTML = fn();
   } catch(e) {
@@ -1079,16 +624,21 @@ function pgMatchs() {
   var qfH = '';
   if (S.user && S.user !== ADMIN) {
     var pc = pendingCount();
+    var todayStr2 = new Date().toLocaleDateString('fr-CA');
+    var todayCount = filtered.filter(function(m){ return m.dt === todayStr2; }).length;
     qfH = '<div class="qf">'
-      + '<button class="qfb'+(S.qf==='all'?' on':'')+'" onclick="setQF(&apos;all&apos;)">Tous les matchs</button>'
+      + '<button class="qfb'+(S.qf==='all'?' on':'')+'" onclick="setQF(&apos;all&apos;)">Tous</button>'
+      + (todayCount>0?'<button class="qfb'+(S.qf==='today'?' on':'')+'" onclick="setQF(&apos;today&apos;)">&#128197; Du jour ('+todayCount+')</button>':'')
       + '<button class="qfb'+(S.qf==='open'?' on':'')+'" onclick="setQF(&apos;open&apos;)">&#128274; Sans prono ('+pc+')</button>'
       + '<button class="qfb'+(S.qf==='done'?' on':'')+'" onclick="setQF(&apos;done&apos;)">&#10003; Déjà saisis</button>'
       + '</div>';
     if (S.qf !== 'all') {
-      var pr2 = uPronos(S.user);
+      var pr2 = uPronos(S.user || '');
+      var todayStr = new Date().toLocaleDateString('fr-CA'); // YYYY-MM-DD local
       filtered = filtered.filter(function(m) {
         var hasPr = !!pr2[m.id];
         var isOpen = new Date() < new Date(m.dt + 'T' + m.ti);
+        if (S.qf === 'today') return m.dt === todayStr;
         if (S.qf === 'open') return isOpen && !hasPr;
         if (S.qf === 'done') return hasPr;
         return true;
@@ -1104,6 +654,8 @@ function pgMatchs() {
 function cardMatch(m) {
   var res=getRes(m.id), pr=S.user?uPronos(S.user):{}, pn=pr[m.id]||null;
   var dt=new Date(m.dt+'T'+m.ti), started=(new Date())>=dt;
+  var hName = m.h;
+  var aName = m.a;
   var ptb=(S.user&&S.user!==ADMIN&&pn&&res)?ptBadge(m.id,S.user):null;
   var dateStr=dt.toLocaleDateString('fr-FR',{day:'numeric',month:'short'})+' &middot; '+m.ti;
   var scoreBlock=res?('<div class="sd"><div class="sb2">'+res.h+'</div><span style="color:var(--muted);margin:0 2px">-</span><div class="sb2">'+res.a+'</div></div>'):'<div style="color:var(--muted);font-size:1.4rem;font-weight:900">VS</div>';
@@ -1124,10 +676,9 @@ function cardMatch(m) {
   }
   return '<div class="mc'+(pn&&S.user!==ADMIN?' hp':'')+(res?' fin':'')+'">'
    +'<div class="mh"><span class="mtag">Match #'+m.id+(m.gr?' &middot; Grp '+m.gr:'')+'</span><span class="ms'+(res?' fin':'')+'">'+(res?'TERMIN&Eacute;':'&Agrave; VENIR')+'</span></div>'
-   +'<div class="mteams"><div class="team"><span class="tf">'+flag(m.h)+'</span><div class="tn">'+m.h+'</div></div><div style="text-align:center">'+scoreBlock+'</div><div class="team" style="text-align:right"><span class="tf">'+flag(m.a)+'</span><div class="tn">'+m.a+'</div></div></div>'
+   +'<div class="mteams"><div class="team"><span class="tf">'+flag(hName)+'</span><div class="tn">'+hName+'</div></div><div style="text-align:center">'+scoreBlock+'</div><div class="team" style="text-align:right"><span class="tf">'+flag(aName)+'</span><div class="tn">'+aName+'</div></div></div>'
    +pronoBlock+adminBlock
-   +'<div class="mf2"><span>&#128197; '+dateStr+' &middot; &#128205; '+m.v+'</span><span>'+(tvTag(m.id)?tvTag(m.id)+' ':'')+countdown(m.dt,m.ti)+'</span></div>'
-   +'</div>';
+   +'<div class="mf2"><span>&#128197; '+dateStr+' &middot; &#128205; '+m.v+'</span>'+'<span>'+(tvTag(m.id)?tvTag(m.id)+' ':'')+countdown(m.dt,m.ti)+'</span></div>'+(!started&&S.user&&S.user!==ADMIN?'<div style="font-size:.7rem;color:var(--muted);margin-top:4px;text-align:right">'+'&#128274; Prono jusqu\'au '+new Date(m.dt+'T'+m.ti).toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'})+'  '+m.ti+'</div>':'')+'</div>';
 }
 
 /* ═══════════════════════════════════════════════
@@ -1328,7 +879,541 @@ async function init(){
   if(!initSB()){render();return;}
   try{await loadAll();}catch(e){console.error('loadAll:',e);toast('Erreur chargement: '+e.message,'err');}
   var ses=localStorage.getItem('cdm_ses');
-  if(ses&&DB.userMap[ses])S.user=ses;
+  if(ses&&DB.userMap[ses]){
+    S.user=ses;
+    // Restore pronos from localStorage backup if Supabase returned none
+    if(Object.keys(DB.pronos[ses]||{}).length===0){
+      try{
+        var cached=localStorage.getItem('cdm_pronos_'+ses);
+        if(cached) DB.pronos[ses]=JSON.parse(cached);
+      }catch(e){}
+    }
+  }
+  try{setupRealtime();}catch(e){console.warn('Realtime:',e);}
+  startAutoSync();
+  render();
+}
+init();
+
+function pgStats() {
+  if (!isAdmin()) return pgAccueil();
+  // Tab: 'global' or group id
+  if (!S.statsTab) S.statsTab = 'global';
+
+  var res = DB.results;
+  var allUsers = DB.users.filter(function(u){ return u.pseudo_key !== ADMIN; });
+  var playedIds = Object.keys(res).map(Number);
+
+  // Global stats
+  var totalPronos = 0, totalExact = 0, totalOk = 0;
+  var topUser = null, topPts = -1;
+  var grpMap = {};
+  DB.groups.forEach(function(g){ grpMap[g.id] = {name:g.name, users:[], pts:0, exact:0, ok:0, pronos:0}; });
+
+  allUsers.forEach(function(u) {
+    var st = pts(u.pseudo_key);
+    var pr = uPronos(u.pseudo_key);
+    totalPronos += Object.keys(pr).length;
+    totalExact += st.ex;
+    totalOk += st.ok;
+    if (st.p > topPts) { topPts = st.p; topUser = u; }
+    if (u.group_id && grpMap[u.group_id]) {
+      grpMap[u.group_id].users.push(u);
+      grpMap[u.group_id].pts += st.p;
+      grpMap[u.group_id].exact += st.ex;
+      grpMap[u.group_id].ok += st.ok;
+      grpMap[u.group_id].pronos += Object.keys(pr).length;
+    }
+  });
+
+  // Match with most exact scores
+  var matchExact = {};
+  playedIds.forEach(function(mid) {
+    matchExact[mid] = 0;
+    allUsers.forEach(function(u) {
+      var pn = uPronos(u.pseudo_key)[mid];
+      var r = res[mid];
+      if (pn && r && pn.h === r.h && pn.a === r.a) matchExact[mid]++;
+    });
+  });
+  var bestMatchId = playedIds.sort(function(a,b){ return matchExact[b]-matchExact[a]; })[0];
+  var bestMatch = bestMatchId ? M.find(function(m){ return m.id == bestMatchId; }) : null;
+
+  // Participation rate per group
+  var grpRows = '';
+  DB.groups.forEach(function(g) {
+    var d = grpMap[g.id];
+    if (!d) return;
+    var nb = d.users.length;
+    var avgPts = nb > 0 ? (d.pts / nb).toFixed(1) : '—';
+    var rate = nb > 0 && playedIds.length > 0
+      ? Math.round(d.pronos / (nb * Math.max(playedIds.length, 1)) * 100) : 0;
+    grpRows += '<tr>'
+      + '<td style="padding:10px 14px;font-weight:700">&#128101; '+g.name+'</td>'
+      + '<td style="padding:10px 14px;text-align:right">'+nb+'</td>'
+      + '<td style="padding:10px 14px;text-align:right">'+d.pronos+'</td>'
+      + '<td style="padding:10px 14px;text-align:right">'+rate+'%</td>'
+      + '<td style="padding:10px 14px;text-align:right">'+d.exact+'</td>'
+      + '<td style="padding:10px 14px;text-align:right">'+d.ok+'</td>'
+      + '<td style="padding:10px 14px;text-align:right;color:var(--gold);font-weight:800">'+avgPts+' pts</td>'
+      + '</tr>';
+  });
+
+  // Top 5 all groups
+  var board = lb();
+  var topRows = '';
+  board.slice(0, 5).forEach(function(u, i) {
+    var medal = i===0?'&#129351;':i===1?'&#129352;':i===2?'&#129353;':(i+1);
+    var grpName = '';
+    var ud = DB.userMap[u.k];
+    if (ud && ud.group_id && grpMap[ud.group_id]) grpName = grpMap[ud.group_id].name;
+    topRows += '<tr>'
+      + '<td style="padding:10px 14px">'+medal+'</td>'
+      + '<td style="padding:10px 14px;font-weight:700">'+u.ps+'</td>'
+      + '<td style="padding:10px 14px;color:var(--muted);font-size:.8rem">'+grpName+'</td>'
+      + '<td style="padding:10px 14px;text-align:right">'+u.ex+'</td>'
+      + '<td style="padding:10px 14px;text-align:right">'+u.ok+'</td>'
+      + '<td style="padding:10px 14px;text-align:right;color:var(--gold);font-weight:800">'+u.p+'</td>'
+      + '</tr>';
+  });
+
+  var card = function(icon, label, val, sub) {
+    return '<div class="sc"><div class="sl">'+label+' <span>'+icon+'</span></div>'
+      +'<div class="sv">'+val+'</div>'
+      +(sub?'<div class="ss">'+sub+'</div>':'')
+      +'</div>';
+  };
+
+    // Build tabs
+  var tabsH = '<div class="tabs" style="margin-top:16px">'
+    + '<button class="tb'+(S.statsTab==='global'?' on':'')+'" onclick="S.statsTab=\'global\';render()">&#127758; Global</button>';
+  DB.groups.forEach(function(g){
+    tabsH += '<button class="tb'+(S.statsTab===g.id?' on':'')+'" onclick="S.statsTab=\''+g.id+'\';render()">&#128101; '+g.name+'</button>';
+  });
+  tabsH += '</div>';
+
+  var content2 = '';
+
+  if (S.statsTab === 'global') {
+    // Global KPIs
+    content2 += '<div class="sg" style="margin-top:20px">'
+      +card('&#128101;', 'Joueurs inscrits', allUsers.length, DB.groups.length+' groupe(s)')
+      +card('&#127919;', 'Total pronostics', totalPronos, '')
+      +card('&#9989;', 'Scores exacts', totalExact, (totalPronos>0?Math.round(totalExact/totalPronos*100)+'% de r\u00e9ussite':''))
+      +card('&#10003;', 'Bons r\u00e9sultats', totalOk, '')
+      +card('&#127942;', 'Meilleur joueur', topUser?topUser.pseudo_display:'\u2014', topUser?topPts+' pts':'')
+      +(bestMatch?card('&#129351;', 'Match le mieux pr\u00e9dit', bestMatch.h+' - '+bestMatch.a, matchExact[bestMatchId]+' score(s) exact(s)'):'')
+      +'</div>';
+    // Stats par groupe
+    if (DB.groups.length > 0) {
+      content2 += '<div style="margin-top:28px"><h3 style="font-size:.95rem;font-weight:800;margin-bottom:12px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted)">Par groupe</h3>'
+        +'<div class="card" style="padding:0"><table class="rt"><thead><tr>'
+        +'<th>Groupe</th><th class="r">Joueurs</th><th class="r">Pronos</th><th class="r">Participation</th><th class="r">Exacts</th><th class="r">R&eacute;sultats</th><th class="r gd">Moy. pts</th>'
+        +'</tr></thead><tbody>'+grpRows+'</tbody></table></div></div>';
+    }
+    // Top 5
+    if (topRows) {
+      content2 += '<div style="margin-top:28px"><h3 style="font-size:.95rem;font-weight:800;margin-bottom:12px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted)">Top 5 tous groupes</h3>'
+        +'<div class="card" style="padding:0"><table class="rt"><thead><tr>'
+        +'<th>#</th><th>Joueur</th><th>Groupe</th><th class="r">Exacts</th><th class="r">R&eacute;sultats</th><th class="r gd">Points</th>'
+        +'</tr></thead><tbody>'+topRows+'</tbody></table></div></div>';
+    }
+  } else {
+    // Group tab
+    var grp = null;
+    DB.groups.forEach(function(g){ if(g.id===S.statsTab) grp=g; });
+    if (!grp) { content2='<div class="empty">Groupe introuvable.</div>'; }
+    else {
+      var gd = grpMap[grp.id] || {users:[],pts:0,exact:0,ok:0,pronos:0};
+      var gUsers = allUsers.filter(function(u){ return u.group_id===grp.id; });
+      var nb = gUsers.length;
+      var avgPts = nb>0?(gd.pts/nb).toFixed(1):'—';
+      var rate = nb>0&&playedIds.length>0?Math.round(gd.pronos/(nb*Math.max(playedIds.length,1))*100):0;
+      content2 += '<div class="sg" style="margin-top:20px">'
+        +card('&#128101;', 'Joueurs', nb, '')
+        +card('&#127919;', 'Total pronos', gd.pronos, rate+'% participation')
+        +card('&#9989;', 'Scores exacts', gd.exact, '')
+        +card('&#10003;', 'Bons r\u00e9sultats', gd.ok, '')
+        +card('&#127942;', 'Moyenne points', avgPts, '')
+        +'</div>';
+      // Group leaderboard
+      var gBoard = [];
+      gUsers.forEach(function(u){
+        var st=pts(u.pseudo_key), pr=uPronos(u.pseudo_key);
+        gBoard.push({k:u.pseudo_key,ps:u.pseudo_display,np:Object.keys(pr).length,p:st.p,ex:st.ex,ok:st.ok});
+      });
+      gBoard.sort(function(a,b){return b.p-a.p||b.ex-a.ex||b.ok-a.ok;});
+      var gRows='';
+      gBoard.forEach(function(u,i){
+        var medal=i===0?'&#129351;':i===1?'&#129352;':i===2?'&#129353;':(i+1);
+        gRows+='<tr><td class="rn'+(i<3?' t':'')+'">'+medal+'</td>'
+          +'<td>'+u.ps+'</td>'
+          +'<td class="rnc">'+u.np+'</td>'
+          +'<td class="rnc">'+u.ex+'</td>'
+          +'<td class="rnc">'+u.ok+'</td>'
+          +'<td class="rpts">'+u.p+'</td></tr>';
+      });
+      if (gRows) {
+        content2 += '<div style="margin-top:20px"><div class="card" style="padding:0">'
+          +'<table class="rt"><thead><tr><th>#</th><th>Joueur</th><th class="r">Pronos</th><th class="r">Exacts</th><th class="r">R&eacute;sultats</th><th class="r gd">Points</th></tr></thead>'
+          +'<tbody>'+gRows+'</tbody></table></div></div>';
+      } else {
+        content2 += '<div class="empty">Aucun joueur dans ce groupe.</div>';
+      }
+      // Pronos detail per match (played only)
+      if (playedIds.length > 0) {
+        var matchRows = '';
+        playedIds.slice(0,20).forEach(function(mid){
+          var mm = null; for(var i=0;i<M.length;i++){if(M[i].id==mid){mm=M[i];break;}}
+          if(!mm) return;
+          var r = DB.results[mid];
+          var exact=0,good=0,miss=0,none=0;
+          gUsers.forEach(function(u){
+            var pn=uPronos(u.pseudo_key)[mid];
+            if(!pn){none++;return;}
+            if(pn.h===r.h&&pn.a===r.a) exact++;
+            else if(Math.sign(pn.h-pn.a)===Math.sign(r.h-r.a)) good++;
+            else miss++;
+          });
+          matchRows+='<tr><td style="padding:8px 14px;font-size:.82rem">'+mm.h+' '+r.h+'-'+r.a+' '+mm.a+'</td>'
+            +'<td class="rnc" style="color:var(--gold)">'+exact+'</td>'
+            +'<td class="rnc" style="color:var(--grn)">'+good+'</td>'
+            +'<td class="rnc" style="color:var(--red)">'+miss+'</td>'
+            +'<td class="rnc">'+none+'</td></tr>';
+        });
+        if (matchRows) {
+          content2 += '<div style="margin-top:20px"><h3 style="font-size:.95rem;font-weight:800;margin-bottom:12px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted)">D\u00e9tail des matchs jou\u00e9s</h3>'
+            +'<div class="card" style="padding:0"><table class="rt"><thead><tr>'
+            +'<th>Match</th><th class="r" style="color:var(--gold)">Exacts</th><th class="r" style="color:var(--grn)">Bons</th><th class="r" style="color:var(--red)">Rat\u00e9s</th><th class="r">Non saisi</th>'
+            +'</tr></thead><tbody>'+matchRows+'</tbody></table></div></div>';
+        }
+      }
+    }
+  }
+
+  return '<div class="pt">&#128202; STATISTIQUES</div>'
+    +'<p class="psub">Vue globale &mdash; visible uniquement par l\'admin</p>'
+    +tabsH+content2;
+}
+
+/* ── Custom team names: direct Supabase matches update ── */
+var customTeams = {};
+function loadCustomTeams() { customTeams = {}; } // no-op, M loaded from DB
+function teamName(matchId, side) { return null; } // no-op, names are in M
+
+async function hSaveTeams() {
+  var inputs = document.querySelectorAll('.team-inp');
+  inputs.forEach(function(inp) {
+    var mid = inp.getAttribute('data-mid');
+    var side = inp.getAttribute('data-side');
+    var val = inp.value.trim();
+    if (val) customTeams[mid+'_'+side] = val;
+    else delete customTeams[mid+'_'+side];
+  });
+  await saveCustomTeams();
+  var e = document.getElementById('te');
+  if (e) { e.textContent = 'Noms sauvegard\u00e9s \u2713'; e.style.color = 'var(--grn)'; }
+  toast('Noms des \u00e9quipes mis \u00e0 jour \u2713');
+  render();
+}
+
+/* ═══════════════════════════════════════════════
+   CHARGEMENT DES DONNÉES
+═══════════════════════════════════════════════ */
+async function loadAll() {
+  if (!sb) return;
+  try {
+    var loggedSes = localStorage.getItem('cdm_ses');
+    var isAdminSession = (loggedSes === ADMIN);
+    var rU, rUg = null, rUses = null;
+    if (GROUP_ID && !isAdminSession) {
+      rU    = await sb.from('users').select('*').eq('pseudo_key', ADMIN);
+      rUg   = await sb.from('users').select('*').eq('group_id', GROUP_ID);
+      if (loggedSes && loggedSes !== ADMIN)
+        rUses = await sb.from('users').select('*').eq('pseudo_key', loggedSes);
+    } else {
+      rU = await sb.from('users').select('*');
+    }
+    var rP = await sb.from('pronos').select('*');
+    var rR = await sb.from('results').select('*');
+    var rC = await sb.from('config').select('*');
+    var rG = await sb.from('groups').select('*').order('created_at');
+    if(rU.error) console.warn('users:',rU.error.message);
+    if(rP.error) console.warn('pronos:',rP.error.message);
+    if(rR.error) console.warn('results:',rR.error.message);
+    if(rC.error) console.warn('config:',rC.error.message);
+    if(rG.error) console.warn('groups:',rG.error.message);
+    var users = rU.data || [];
+    var seenIds = {}; users.forEach(function(u){ seenIds[u.id]=true; });
+    if(rUg&&rUg.data) rUg.data.forEach(function(u){ if(!seenIds[u.id]){users.push(u);seenIds[u.id]=true;} });
+    if(rUses&&rUses.data) rUses.data.forEach(function(u){ if(!seenIds[u.id]){users.push(u);seenIds[u.id]=true;} });
+    var pronos  = rP.data || [];
+    var results = rR.data || [];
+    var config  = rC.data || [];
+    DB.groups   = rG.data || [];
+    if(GROUP_ID && !isAdminSession){
+      var gids=users.map(function(u){return u.id;});
+      pronos=pronos.filter(function(p){return gids.indexOf(p.user_id)>-1;});
+    }
+    DB.users=[]; DB.userMap={};
+    for(var i=0;i<users.length;i++){ DB.users.push(users[i]); DB.userMap[users[i].pseudo_key]=users[i]; }
+    DB.pronos={};
+    for(var i=0;i<users.length;i++) DB.pronos[users[i].pseudo_key]={};
+    var knownIds={};
+    for(var j=0;j<users.length;j++) knownIds[users[j].id]=users[j];
+    for(var i=0;i<pronos.length;i++){
+      var p=pronos[i], owner=knownIds[p.user_id];
+      if(owner){ if(!DB.pronos[owner.pseudo_key]) DB.pronos[owner.pseudo_key]={}; DB.pronos[owner.pseudo_key][p.match_id]={h:p.home_score,a:p.away_score}; }
+    }
+    DB.results={};
+    for(var i=0;i<results.length;i++) DB.results[results[i].match_id]={h:results[i].home_score,a:results[i].away_score};
+    for(var i=0;i<config.length;i++) DB.config[config[i].key]=config[i].value;
+    var rM = await sb.from('matches').select('*').order('id');
+    if(rM.data&&rM.data.length>0){
+      M=rM.data.map(function(r){ return {id:r.id,ph:r.phase,gr:r.grp,dt:r.dt,ti:r.ti,h:r.home,a:r.away,v:r.venue}; });
+    }
+  } catch(e){ toast('Erreur chargement: '+e.message,'err'); }
+}
+
+async function reloadPronos() {
+  if(!sb) return;
+  var r=await sb.from('pronos').select('*');
+  var pronos=r.data||[];
+  var knownIds={};
+  for(var j=0;j<DB.users.length;j++) knownIds[DB.users[j].id]=DB.users[j];
+  for(var k in DB.pronos) DB.pronos[k]={};
+  for(var i=0;i<pronos.length;i++){
+    var p=pronos[i],owner=knownIds[p.user_id];
+    if(owner){ if(!DB.pronos[owner.pseudo_key]) DB.pronos[owner.pseudo_key]={}; DB.pronos[owner.pseudo_key][p.match_id]={h:p.home_score,a:p.away_score}; }
+  }
+}
+
+function setupRealtime() {
+  if(!sb) return;
+  try {
+    sb.channel('db-live')
+      .on('postgres_changes',{event:'*',schema:'public',table:'results'},function(payload){
+        setTimeout(function(){
+          if(payload.eventType==='DELETE') delete DB.results[payload.old.match_id];
+          else { DB.results[payload.new.match_id]={h:payload.new.home_score,a:payload.new.away_score}; if(!isAdmin()) toast('Score mis \u00e0 jour ! \u26a1'); }
+          render();
+        },0);
+      })
+      .on('postgres_changes',{event:'*',schema:'public',table:'pronos'},function(){
+        setTimeout(function(){ reloadPronos().then(function(){ if(S.page==='classement'||S.page==='accueil') render(); }); },0);
+      })
+      .subscribe();
+  } catch(e){ console.warn('Realtime:',e.message); }
+}
+
+async function hSaveAll(){
+  if(!S.user||S.user===ADMIN||!sb) return;
+  if(!DB.userMap[S.user]){ toast('Session expir\u00e9e, reconnectez-vous','err'); return; }
+  var uid=DB.userMap[S.user].id,records=[],saved=0;
+  for(var mi=0;mi<M.length;mi++){
+    var m=M[mi];
+    var hEl=document.getElementById('ph'+m.id),aEl=document.getElementById('pa'+m.id);
+    if(!hEl||!aEl||hEl.value===''||aEl.value==='') continue;
+    records.push({user_id:uid,match_id:m.id,home_score:+hEl.value,away_score:+aEl.value,updated_at:new Date().toISOString()});
+    if(!DB.pronos[S.user]) DB.pronos[S.user]={};
+    DB.pronos[S.user][m.id]={h:+hEl.value,a:+aEl.value};
+    saved++;
+  }
+  if(!records.length){toast('Aucun pronostic \u00e0 sauvegarder','info');return;}
+  var btn=document.querySelector('.save-bar button');
+  if(btn){btn.disabled=true;btn.innerHTML='&#9203; Sauvegarde...';}
+  var r=await sb.from('pronos').upsert(records,{onConflict:'user_id,match_id'});
+  if(r.error){
+    toast('Erreur: '+r.error.message,'err');
+    console.error('Upsert error:',r.error);
+  } else {
+    try{ localStorage.setItem('cdm_pronos_'+S.user,JSON.stringify(DB.pronos[S.user]||{})); }catch(e){}
+    toast(saved+' pronostic(s) sauvegard\u00e9(s) \u2713'); render();
+  }
+}
+function updatePronoCount(){
+  var cnt=document.getElementById('prono-count'); if(!cnt) return;
+  var n=0;
+  for(var mi=0;mi<M.length;mi++){
+    var hEl=document.getElementById('ph'+M[mi].id),aEl=document.getElementById('pa'+M[mi].id);
+    if(hEl&&aEl&&hEl.value!==''&&aEl.value!=='') n++;
+  }
+  cnt.textContent=n+' saisi(s)';
+}
+async function hSetRes(id){
+  if(!isAdmin()){toast('Acc\u00e8s refus\u00e9','err');return;}
+  var hv=gv('rh'+id),av=gv('ra'+id);
+  if(hv===''||av===''){toast('Score incomplet !','err');return;}
+  await setRes(id,hv,av);toast('Score enregistr\u00e9 \u2713');render();
+}
+async function hDelRes(id){
+  if(!isAdmin()){toast('Acc\u00e8s refus\u00e9','err');return;}
+  await delRes(id);toast('Score supprim\u00e9');render();
+}
+async function hCpw(){
+  var o=gv('opw'),n=gv('npw'),r=await chgPw(o,n);
+  if(r.ok){toast('Mot de passe modifi\u00e9 \u2713');S.cpw=false;render();}
+  else{var e=document.getElementById('cpwe');if(e)e.textContent=r.msg;}
+}
+function updateAdminBanner(){
+  var ban=document.getElementById('adm-ban');if(!ban)return;
+  if(adminMode&&isAdmin()){ban.classList.add('on');document.documentElement.style.setProperty('--ban','32px');}
+  else{ban.classList.remove('on');document.documentElement.style.setProperty('--ban','0px');}
+}
+function logoClick(){
+  logoClicks++;
+  if(logoTimer)clearTimeout(logoTimer);
+  if(logoClicks>=5){logoClicks=0;document.getElementById('emergency-modal').style.display='flex';return;}
+  logoTimer=setTimeout(function(){logoClicks=0;},2000);
+}
+function countdown(dt,ti){
+  var kickoff=new Date(dt+'T'+ti),diff=kickoff-new Date();
+  if(diff<=0) return '';
+  var h=Math.floor(diff/3600000),m=Math.floor((diff%3600000)/60000);
+  var cls=h<2?'hot':h<12?'warm':'ok';
+  var label=h===0?m+'min':h<24?h+'h'+(m>0?m+'min':''):Math.floor(h/24)+'j';
+  return '<span class="cd '+cls+'">&#9201; '+label+'</span>';
+}
+function pendingCount(){
+  if(!S.user||S.user===ADMIN) return 0;
+  var pr=uPronos(S.user),n=0;
+  for(var i=0;i<M.length;i++){var m=M[i];if(new Date()<new Date(m.dt+'T'+m.ti)&&!pr[m.id])n++;}
+  return n;
+}
+function notifSupported(){return 'Notification' in window&&'serviceWorker' in navigator;}
+async function requestNotif(){
+  var p=await Notification.requestPermission();
+  if(p==='granted'){toast('Notifications activ\u00e9es \u2713');render();}
+  else toast('Notifications refus\u00e9es','err');
+}
+function notifStatus(){if(!notifSupported())return 'unsupported';return Notification.permission;}
+function getMatchesPendingSync(){
+  var now=new Date(),pending=[];
+  for(var i=0;i<M.length;i++){
+    var m=M[i];if(DB.results[m.id])continue;
+    if(now>=new Date(new Date(m.dt+'T'+m.ti).getTime()+2*60*60*1000)) pending.push(m);
+  }
+  return pending;
+}
+async function autoFetch(silent){
+  var apikey=DB.config.apikey;if(!apikey){if(!silent)toast('Cl\u00e9 API manquante','err');return;}
+  var pending=getMatchesPendingSync();
+  if(!pending.length){if(!silent)toast('Aucun match \u00e0 synchroniser');return;}
+  if(!silent)toast('Synchronisation...');
+  try{
+    var resp=await fetch('https://api.football-data.org/v4/competitions/WC/matches?status=FINISHED',{headers:{'X-Auth-Token':apikey}});
+    if(!resp.ok) throw new Error('HTTP '+resp.status);
+    var data=await resp.json(),matches=data.matches||[],updated=0;
+    for(var i=0;i<matches.length;i++){
+      var am=matches[i];if(!am.score||!am.score.fullTime)continue;
+      var sc=am.score.fullTime;if(sc.home===null||sc.away===null)continue;
+      var aHome=APIMAP[am.homeTeam.name]||APIMAP[am.homeTeam.shortName]||'';
+      var aAway=APIMAP[am.awayTeam.name]||APIMAP[am.awayTeam.shortName]||'';
+      for(var j=0;j<pending.length;j++){
+        if(DB.results[pending[j].id])continue;
+        var hOk=pending[j].h===aHome||(!aHome&&pending[j].h.toLowerCase().indexOf((am.homeTeam.shortName||'').toLowerCase())>-1);
+        var aOk=pending[j].a===aAway||(!aAway&&pending[j].a.toLowerCase().indexOf((am.awayTeam.shortName||'').toLowerCase())>-1);
+        if(hOk&&aOk){await setRes(pending[j].id,sc.home,sc.away);updated++;break;}
+      }
+    }
+    var still=getMatchesPendingSync().length;
+    if(!silent||updated>0) toast(updated+' score(s) mis \u00e0 jour'+(still>0?' \u2014 '+still+' en attente':''));
+    if(updated>0) render();
+  }catch(e){toast('Erreur API: '+e.message,'err');}
+}
+function startAutoSync(){
+  setInterval(function(){
+    if(!isAdmin()||!adminMode||!DB.config.apikey)return;
+    if(getMatchesPendingSync().length>0) autoFetch(true);
+  },5*60*1000);
+}
+async function hTogAdm(){
+  if(!isAdmin()){toast('Acc\u00e8s refus\u00e9','err');return;}
+  var pin=gv('apm'),e=document.getElementById('ame');
+  if(pin!==DB.config.pin){if(e){e.textContent='PIN incorrect.';}return;}
+  adminMode=!adminMode;updateAdminBanner();toast(adminMode?'Mode admin activ\u00e9':'Mode admin d\u00e9sactiv\u00e9');render();
+}
+async function hAdmReset(){
+  var p=gv('ap'),n=gv('anp'),pin=gv('apin'),r=await admReset(p,n,pin),e=document.getElementById('ae');
+  if(e){e.textContent=r.ok?'R\u00e9initialis\u00e9 !':r.msg;e.style.color=r.ok?'var(--grn)':'var(--red)';}
+  if(r.ok) toast('Mot de passe r\u00e9initialis\u00e9 \u2713');
+}
+async function hDelUser(){
+  if(!isAdmin()){toast('Acc\u00e8s refus\u00e9','err');return;}
+  var pseudo=gv('dup').trim().toLowerCase(),pin=gv('dpin'),e=document.getElementById('de');
+  if(!pseudo){if(e){e.textContent='Entre un pseudo.';e.style.color='var(--red)';}return;}
+  if(pin!==DB.config.pin){if(e){e.textContent='PIN incorrect.';e.style.color='var(--red)';}return;}
+  if(pseudo===ADMIN){if(e){e.textContent='Impossible.';e.style.color='var(--red)';}return;}
+  var uu=DB.userMap[pseudo];if(!uu){if(e){e.textContent='Introuvable.';e.style.color='var(--red)';}return;}
+  await sb.from('users').delete().eq('id',uu.id);
+  DB.users=DB.users.filter(function(u){return u.id!==uu.id;});delete DB.userMap[pseudo];delete DB.pronos[pseudo];
+  toast('Compte supprim\u00e9');render();
+}
+async function hChgPin(){
+  var o=gv('opin'),n=gv('npin'),e=document.getElementById('pe');
+  if(o!==DB.config.pin){if(e){e.textContent='PIN actuel incorrect.';e.style.color='var(--red)';}return;}
+  if(!n||n.length<3){if(e){e.textContent='PIN trop court.';e.style.color='var(--red)';}return;}
+  await saveConfig('pin',n);if(e){e.textContent='PIN modifi\u00e9 \u2713';e.style.color='var(--grn)';}
+}
+async function hSaveKey(){
+  var k=gv('apikey').trim();await saveConfig('apikey',k);toast('Cl\u00e9 API enregistr\u00e9e \u2713');
+  var e=document.getElementById('synce');if(e)e.textContent='Cl\u00e9 sauvegard\u00e9e.';
+}
+async function hCreateGroup(){
+  var name=gv('new-grp').trim(),e=document.getElementById('grpe');
+  if(!name){if(e){e.textContent='Entrez un nom.';e.style.color='var(--red)';}return;}
+  var r=await createGroup(name);
+  if(r.ok){toast('Groupe "'+r.group.name+'" cr\u00e9\u00e9 \u2713');var inp=document.getElementById('new-grp');if(inp)inp.value='';render();}
+  else{if(e){e.textContent=r.msg;e.style.color='var(--red)';}}
+}
+async function hDelGroup(gid){
+  if(!confirm('Supprimer ce groupe ?')) return;
+  await deleteGroup(gid);toast('Groupe supprim\u00e9');render();
+}
+function hCopyUrl(url){
+  navigator.clipboard.writeText(url).then(function(){toast('URL copi\u00e9e \u2713');}).catch(function(){prompt('Copiez :',url);});
+}
+async function doEmergency(){
+  var sec=gv('em-secret'),np=gv('em-np'),npin=gv('em-npin'),emsg=document.getElementById('em-msg');
+  if(sec!=='CDM2026RESCUE'){if(emsg){emsg.textContent='Code incorrect.';emsg.style.color='var(--red)';}return;}
+  if(np.length>=3){
+    var uu=DB.userMap[ADMIN];
+    if(!uu){var r=await sb.from('users').insert({pseudo_key:ADMIN,pseudo_display:'adminprono',hash:hsh(np)}).single();if(!r.error){DB.users.push(r.data);DB.userMap[ADMIN]=r.data;}}
+    else{await sb.from('users').update({hash:hsh(np)}).eq('id',uu.id);uu.hash=hsh(np);}
+  }
+  if(npin.length>=3) await saveConfig('pin',npin);
+  if(emsg){emsg.textContent='R\u00e9initialisation effectu\u00e9e !';emsg.style.color='var(--grn)';}
+  setTimeout(function(){document.getElementById('emergency-modal').style.display='none';},2000);
+}
+
+/* ── Events ── */
+document.addEventListener('click',function(e){
+  if(e.target.classList.contains('xbtn')){var k=e.target.getAttribute('data-k'),inp=document.getElementById('dup');if(inp&&k){inp.value=k;inp.focus();}}
+  if(e.target.id==='tpwbtn'){var pw=document.getElementById('lpw');if(pw){pw.type=pw.type==='password'?'text':'password';e.target.textContent=pw.type==='password'?'\uD83D\uDC41':'\uD83D\uDE48';}}
+});
+document.addEventListener('input',function(e){if(e.target.classList.contains('pi'))updatePronoCount();});
+document.addEventListener('keydown',function(e){
+  if(e.key==='Enter'){var lp=document.getElementById('lp'),lpw=document.getElementById('lpw');if(lp&&lpw&&(document.activeElement===lp||document.activeElement===lpw))hLogin();}
+});
+document.getElementById('ham').addEventListener('click',function(){document.getElementById('sb').classList.toggle('open');document.getElementById('ov').classList.toggle('open');});
+document.getElementById('ov').addEventListener('click',function(){document.getElementById('sb').classList.remove('open');document.getElementById('ov').classList.remove('open');});
+
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.getRegistrations().then(function(regs){regs.forEach(function(r){r.unregister();});});
+  if('caches' in window) caches.keys().then(function(keys){keys.forEach(function(k){caches.delete(k);});});
+}
+
+async function init(){
+  document.getElementById('main').innerHTML='<div class="loading-wrap"><div class="spinner"></div></div>';
+  if(!initSB()){render();return;}
+  try{await loadAll();}catch(e){console.error('loadAll:',e);toast('Erreur: '+e.message,'err');}
+  var ses=localStorage.getItem('cdm_ses');
+  if(ses&&DB.userMap[ses]){
+    S.user=ses;
+    if(Object.keys(DB.pronos[ses]||{}).length===0){
+      try{var cached=localStorage.getItem('cdm_pronos_'+ses);if(cached)DB.pronos[ses]=JSON.parse(cached);}catch(e){}
+    }
+  }
   try{setupRealtime();}catch(e){console.warn('Realtime:',e);}
   startAutoSync();
   render();
