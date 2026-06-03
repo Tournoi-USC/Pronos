@@ -197,7 +197,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 <button class="ham" id="ham">&#9776;</button>
 <div class="ov" id="ov"></div>
 <nav class="sb" id="sb">
-  <div class="sb-logo" onclick="logoClick()">&#127942; <span>PRONO CDM 26/6</span></div>
+  <div class="sb-logo" onclick="logoClick()">&#127942; <span>PRONO CDM 26/5</span></div>
   <div id="grp-chip" style="padding:4px 20px 8px;font-size:.72rem;color:var(--gold);opacity:.8"></div>
   <div class="sb-nav" id="snav"></div>
 </nav>
@@ -631,17 +631,13 @@ function initSB() {
 async function loadAll() {
   if (!sb) return;
   try {
-    // Admin voit tout; sur URL de groupe, charge admin + membres du groupe + session active
-    var rU, rUg = null, rUses = null;
+    // Admin voit tout, sinon filtre par groupe
+    var rU, rUg = null;
     var loggedSes = localStorage.getItem('cdm_ses');
     var isAdminSession = (loggedSes === ADMIN);
     if (GROUP_ID && !isAdminSession) {
-      rU    = await sb.from('users').select('*').eq('pseudo_key', ADMIN);
-      rUg   = await sb.from('users').select('*').eq('group_id', GROUP_ID);
-      // Also load current session user (may have null group_id)
-      if (loggedSes && loggedSes !== ADMIN) {
-        rUses = await sb.from('users').select('*').eq('pseudo_key', loggedSes);
-      }
+      rU  = await sb.from('users').select('*').eq('pseudo_key', ADMIN);
+      rUg = await sb.from('users').select('*').eq('group_id', GROUP_ID);
     } else {
       rU = await sb.from('users').select('*');
     }
@@ -655,13 +651,11 @@ async function loadAll() {
     if (rC.error) console.warn('config:', rC.error.message);
     if (rG.error) console.warn('groups (may not exist yet):', rG.error.message);
     var users = rU.data || [];
-    var seenIds = {};
-    users.forEach(function(u){ seenIds[u.id]=true; });
     if (rUg && rUg.data) {
-      rUg.data.forEach(function(u){ if(!seenIds[u.id]){ users.push(u); seenIds[u.id]=true; } });
-    }
-    if (rUses && rUses.data) {
-      rUses.data.forEach(function(u){ if(!seenIds[u.id]){ users.push(u); seenIds[u.id]=true; } });
+      // Merge: admin + group users (deduplicate)
+      var seen = {};
+      users.forEach(function(u){ seen[u.id]=true; });
+      rUg.data.forEach(function(u){ if(!seen[u.id]) users.push(u); });
     }
     var pronos = rP.data || [];
     var results= rR.data || [];
@@ -696,13 +690,10 @@ async function reloadPronos() {
   if (!sb) return;
   var r = await sb.from('pronos').select('*');
   var pronos = r.data || [];
-  // Build set of known user IDs (already filtered by group in DB.users)
-  var knownIds = {};
-  for (var j=0; j<DB.users.length; j++) knownIds[DB.users[j].id] = DB.users[j];
   for (var k in DB.pronos) DB.pronos[k] = {};
   for (var i=0; i<pronos.length; i++) {
-    var p = pronos[i];
-    var owner = knownIds[p.user_id];
+    var p = pronos[i], owner = null;
+    for (var j=0; j<DB.users.length; j++) { if (DB.users[j].id === p.user_id) { owner = DB.users[j]; break; } }
     if (owner) {
       if (!DB.pronos[owner.pseudo_key]) DB.pronos[owner.pseudo_key] = {};
       DB.pronos[owner.pseudo_key][p.match_id] = {h: p.home_score, a: p.away_score};
@@ -763,27 +754,9 @@ async function doLogin(pseudo, pw) {
       method:'POST',
       headers:{'Content-Type':'application/json','apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Prefer':'return=representation'},
       body:JSON.stringify({pseudo_key:k, pseudo_display:pseudo.trim(), hash:h, group_id:gid})
-    }).then(function(r){return r.json().then(function(d){return {ok:r.ok,data:d,status:r.status};});});
-    var newUser;
-    if (!insertRes.ok) {
-      // Duplicate key = user exists but wasn't loaded (group filter) → fetch them
-      var fetchRes = await fetch(SUPABASE_URL+'/rest/v1/users?pseudo_key=eq.'+encodeURIComponent(k)+'&select=*', {
-        headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}
-      }).then(function(r){return r.json();});
-      if (!fetchRes || !fetchRes.length) return {ok:false, msg:'Erreur création: '+(insertRes.data.message||JSON.stringify(insertRes.data))};
-      newUser = fetchRes[0];
-      // Update group_id if user has none and we're on a group URL
-      if (GROUP_ID && !newUser.group_id && k!==ADMIN) {
-        await fetch(SUPABASE_URL+'/rest/v1/users?id=eq.'+newUser.id, {
-          method:'PATCH',
-          headers:{'Content-Type':'application/json','apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY},
-          body:JSON.stringify({group_id:GROUP_ID})
-        });
-        newUser.group_id = GROUP_ID;
-      }
-    } else {
-      newUser = Array.isArray(insertRes.data) ? insertRes.data[0] : insertRes.data;
-    }
+    }).then(function(r){return r.json().then(function(d){return {ok:r.ok,data:d};});});
+    if (!insertRes.ok) return {ok:false, msg:'Erreur création: '+(insertRes.data.message||JSON.stringify(insertRes.data))};
+    var newUser = Array.isArray(insertRes.data) ? insertRes.data[0] : insertRes.data;
     DB.users.push(newUser); DB.userMap[k] = newUser; DB.pronos[k] = {};
   }
   S.user = k; localStorage.setItem('cdm_ses', k);
@@ -863,10 +836,7 @@ function ptBadge(id, user) {
 function lb() {
   var arr = [];
   for (var i=0; i<DB.users.length; i++) {
-    var u = DB.users[i];
-    if (u.pseudo_key===ADMIN) continue;
-    // Sur URL de groupe: ne montrer que les membres du groupe
-    if (GROUP_ID && u.group_id !== GROUP_ID) continue;
+    var u = DB.users[i]; if (u.pseudo_key===ADMIN) continue;
     var st=pts(u.pseudo_key), pr=uPronos(u.pseudo_key);
     arr.push({k:u.pseudo_key, ps:u.pseudo_display, np:Object.keys(pr).length, p:st.p, ex:st.ex, ok:st.ok, pl:st.pl});
   }
@@ -996,37 +966,9 @@ function renderNav() {
   }
   document.getElementById('snav').innerHTML = h;
   var chip=document.getElementById('grp-chip');
-  if(chip) chip.innerHTML=currentGroupName()?'&#128101; '+currentGroupName():'';
+  if(chip) chip.textContent=currentGroupName()?'&#128101; '+currentGroupName():'';
 
 }
-
-function pgNoGroup() {
-  // URL racine sans groupe = accès admin uniquement
-  if (!S.user) {
-    var grpLinks = DB.groups.map(function(g){
-      return '<div style="background:var(--card);border:1px solid var(--bdr);border-radius:8px;padding:10px 16px;display:flex;justify-content:space-between;align-items:center">'
-        +'<span style="font-weight:600">&#128101; '+g.name+'</span>'
-        +'<button class="rsb" onclick="hCopyUrl(\''+groupUrl(g.id)+'\')" style="background:#1a2e1a;color:var(--grn)">&#128279; Copier URL</button>'
-        +'</div>';
-    }).join('');
-    return '<div style="max-width:400px;margin:80px auto;text-align:center">'
-      +'<div style="font-size:3rem;margin-bottom:16px">&#127942;</div>'
-      +'<h1 style="font-size:1.8rem;font-weight:900;margin-bottom:8px">PRONO CDM 26</h1>'
-      +'<p style="color:var(--muted);margin-bottom:20px">Acc\u00e8s r\u00e9serv\u00e9 \u00e0 l\'administrateur.<br>Les joueurs doivent utiliser leur lien de groupe.</p>'
-      +'<div style="background:var(--card);border:1px solid var(--bdr);border-radius:12px;padding:20px;text-align:left">'
-      +'<div style="display:flex;flex-direction:column;gap:10px">'
-      +'<input class="fi" id="lp" placeholder="Pseudo admin" autocomplete="username">'
-      +'<div style="position:relative"><input class="fi" id="lpw" type="password" placeholder="Mot de passe" style="width:100%;padding-right:40px">'
-      +'<span id="tpwbtn" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);cursor:pointer;color:var(--muted)">&#128065;</span></div>'
-      +'<button class="btn-g" onclick="hLogin()" style="width:100%">Se connecter</button>'
-      +'<div id="lerr" style="color:var(--red);font-size:.78rem;text-align:center"></div>'
-      +'</div></div>'
-      +(DB.groups.length ? '<div style="margin-top:20px;text-align:left"><p style="color:var(--muted);font-size:.75rem;margin-bottom:8px">Liens des groupes :</p>'+grpLinks+'</div>' : '')
-      +'</div>';
-  }
-  return null;
-}
-
 function render() {
   try {
     renderNav();
