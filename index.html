@@ -197,7 +197,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 <button class="ham" id="ham">&#9776;</button>
 <div class="ov" id="ov"></div>
 <nav class="sb" id="sb">
-  <div class="sb-logo" onclick="logoClick()">&#127942; <span>PRONO CDM 26/L</span></div>
+  <div class="sb-logo" onclick="logoClick()">&#127942; <span>PRONO CDM 26/L2</span></div>
   <div id="grp-chip" style="padding:4px 20px 8px;font-size:.72rem;color:var(--gold);opacity:.8"></div>
   <div class="sb-nav" id="snav"></div>
 </nav>
@@ -508,6 +508,17 @@ function pgNoGroup() {
   return null;
 }
 
+/* ═══════════════════════════════════════════════
+   CONFIGURATION — modifier ces 2 lignes
+═══════════════════════════════════════════════ */
+var SUPABASE_URL = 'https://rkbrrndpajczwrhpjoaw.supabase.co';
+var SUPABASE_KEY = 'sb_publishable_vcRpMaKi9Ocqv0evibJ54w_eX6f3Ts8';
+
+/* ═══════════════════════════════════════════════
+   CONSTANTES
+═══════════════════════════════════════════════ */
+var ADMIN = 'adminprono';
+var EMERGENCY_CODE = 'CDM2026RESCUE'; 
 function render() {
   try {
     renderNav();
