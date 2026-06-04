@@ -197,7 +197,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 <button class="ham" id="ham">&#9776;</button>
 <div class="ov" id="ov"></div>
 <nav class="sb" id="sb">
-  <div class="sb-logo" onclick="logoClick()">&#127942; <span>PRONO CDM 26/1336</span></div>
+  <div class="sb-logo" onclick="logoClick()">&#127942; <span>PRONO CDM 26/1342</span></div>
   <div id="grp-chip" style="padding:4px 20px 8px;font-size:.72rem;color:var(--gold);opacity:.8"></div>
   <div class="sb-nav" id="snav"></div>
 </nav>
@@ -365,6 +365,73 @@ var M=[
 {id:73,ph:"BARRAGES",gr:null,dt:"2026-06-28",ti:"21:00",h:"2A",a:"2B",v:"Los Angeles"},
 {id:104,ph:"FINALE",gr:null,dt:"2026-07-19",ti:"21:00",h:"W101",a:"W102",v:"New York"}
 ];
+
+/* ═══════════════════════════════ UTILITAIRES ═══════════════════════════════ */
+function hsh(s){var h=5381;for(var i=0;i<s.length;i++)h=((h<<5)+h)^s.charCodeAt(i);return(h>>>0).toString(16);}
+function psd(k){return DB.userMap[k]?DB.userMap[k].pseudo_display:k;}
+function isAdmin(){return S.user===ADMIN;}
+function flag(f){return FL[f]||'';}
+function tvTag(id){var t=TV[id];if(!t)return '';var h='';if(t.indexOf('M6')>-1)h+='<span class="tv-tag tv-m6">&#128250; M6</span> ';if(t.indexOf('beIN')>-1)h+='<span class="tv-tag tv-bein">&#128250; beIN</span>';return h;}
+function gv(id){var el=document.getElementById(id);return el?el.value:'';}
+
+/* ═══════════════════════════════ AUTH ══════════════════════════════════════ */
+async function doLogin(pseudo,pw){
+  if(!pseudo||!pw)return{ok:false,msg:'Remplis tous les champs.'};
+  if(!sb)return{ok:false,msg:'Supabase non configuré.'};
+  var k=pseudo.toLowerCase().trim(),h=hsh(pw);
+  var existing=DB.userMap[k];
+  if(existing){if(existing.hash!==h)return{ok:false,msg:'Mot de passe incorrect.'};}
+  else{
+    var gid=(k===ADMIN)?null:GROUP_ID;
+    var insertRes=await fetch(SUPABASE_URL+'/rest/v1/users',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Prefer':'return=representation'},
+      body:JSON.stringify({pseudo_key:k,pseudo_display:pseudo.trim(),hash:h,group_id:gid})
+    }).then(function(r){return r.json().then(function(d){return{ok:r.ok,data:d};});});
+    if(!insertRes.ok){
+      var fetchRes=await fetch(SUPABASE_URL+'/rest/v1/users?pseudo_key=eq.'+encodeURIComponent(k)+'&select=*',{
+        headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}
+      }).then(function(r){return r.json();});
+      if(!fetchRes||!fetchRes.length)return{ok:false,msg:'Erreur: '+(insertRes.data.message||'')};
+      var newUser=fetchRes[0];
+      if(GROUP_ID&&!newUser.group_id&&k!==ADMIN){
+        await fetch(SUPABASE_URL+'/rest/v1/users?id=eq.'+newUser.id,{method:'PATCH',headers:{'Content-Type':'application/json','apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY},body:JSON.stringify({group_id:GROUP_ID})});
+        newUser.group_id=GROUP_ID;
+      }
+      DB.users.push(newUser);DB.userMap[k]=newUser;DB.pronos[k]={};
+    } else {
+      var nu=Array.isArray(insertRes.data)?insertRes.data[0]:insertRes.data;
+      DB.users.push(nu);DB.userMap[k]=nu;DB.pronos[k]={};
+    }
+  }
+  S.user=k;localStorage.setItem('cdm_ses',k);
+  if(k===ADMIN&&GROUP_ID){try{await loadAll();}catch(e){}}
+  return{ok:true};
+}
+function doLogout(){S.user=null;adminMode=false;localStorage.removeItem('cdm_ses');updateAdminBanner();go('accueil');}
+async function chgPw(o,n){var uu=DB.userMap[S.user];if(!uu)return{ok:false,msg:'Introuvable'};if(uu.hash!==hsh(o))return{ok:false,msg:'Ancien mdp incorrect'};if(n.length<3)return{ok:false,msg:'Trop court'};await sb.from('users').update({hash:hsh(n)}).eq('id',uu.id);uu.hash=hsh(n);return{ok:true};}
+async function admReset(pseudo,np,pin){if(pin!==DB.config.pin)return{ok:false,msg:'PIN incorrect'};var k=pseudo.toLowerCase().trim(),uu=DB.userMap[k];if(!uu)return{ok:false,msg:'Joueur introuvable'};await sb.from('users').update({hash:hsh(np)}).eq('id',uu.id);uu.hash=hsh(np);return{ok:true};}
+
+/* ═══════════════════════════════ PRONOS ════════════════════════════════════ */
+async function savePr(id,hv,av){if(!S.user||!sb)return;var uid=DB.userMap[S.user].id;await sb.from('pronos').upsert({user_id:uid,match_id:+id,home_score:+hv,away_score:+av,updated_at:new Date().toISOString()},{onConflict:'user_id,match_id'});if(!DB.pronos[S.user])DB.pronos[S.user]={};DB.pronos[S.user][id]={h:+hv,a:+av};}
+function uPronos(u){return DB.pronos[u]||{};}
+function getRes(id){return DB.results[id]||null;}
+async function setRes(id,hv,av){if(!sb)return;await sb.from('results').upsert({match_id:+id,home_score:+hv,away_score:+av,updated_at:new Date().toISOString()});DB.results[id]={h:+hv,a:+av};}
+async function delRes(id){if(!sb)return;await sb.from('results').delete().eq('match_id',+id);delete DB.results[id];}
+async function saveConfig(key,val){if(!sb)return;await sb.from('config').upsert({key:key,value:val});DB.config[key]=val;}
+
+/* ═══════════════════════════════ SCORING ═══════════════════════════════════ */
+function pts(user){var pr=uPronos(user),res=DB.results,p=0,ex=0,ok=0,pl=0,ids=Object.keys(pr);for(var i=0;i<ids.length;i++){var pn=pr[ids[i]],r=res[ids[i]];if(!r)continue;pl++;if(pn.h===r.h&&pn.a===r.a){p+=3;ex++;}else if(Math.sign(pn.h-pn.a)===Math.sign(r.h-r.a)){p+=1;ok++;}}return{p:p,ex:ex,ok:ok,pl:pl};}
+function ptBadge(id,user){var pn=uPronos(user)[id],r=getRes(id);if(!pn||!r)return null;if(pn.h===r.h&&pn.a===r.a)return 'ex';return Math.sign(pn.h-pn.a)===Math.sign(r.h-r.a)?'ok':'no';}
+function lb(){var arr=[];for(var i=0;i<DB.users.length;i++){var u=DB.users[i];if(u.pseudo_key===ADMIN)continue;if(GROUP_ID&&u.group_id!==GROUP_ID)continue;var st=pts(u.pseudo_key),pr=uPronos(u.pseudo_key);arr.push({k:u.pseudo_key,ps:u.pseudo_display,np:Object.keys(pr).length,p:st.p,ex:st.ex,ok:st.ok,pl:st.pl});}arr.sort(function(a,b){return b.p-a.p||b.ex-a.ex||b.ok-a.ok;});return arr;}
+function standings(g){var teams=GR[g],res=DB.results,tb={};for(var i=0;i<teams.length;i++)tb[teams[i]]={j:0,g:0,n:0,p:0,bp:0,bc:0,d:0,pts:0};for(var mi=0;mi<M.length;mi++){var m=M[mi];if(m.ph!=='POULES'||m.gr!==g)continue;var r=res[m.id];if(!r)continue;var h=r.h,a=r.a;tb[m.h].j++;tb[m.a].j++;tb[m.h].bp+=h;tb[m.h].bc+=a;tb[m.a].bp+=a;tb[m.a].bc+=h;if(h>a){tb[m.h].g++;tb[m.h].pts+=3;tb[m.a].p++;}else if(h<a){tb[m.a].g++;tb[m.a].pts+=3;tb[m.h].p++;}else{tb[m.h].n++;tb[m.h].pts++;tb[m.a].n++;tb[m.a].pts++;}tb[m.h].d=tb[m.h].bp-tb[m.h].bc;tb[m.a].d=tb[m.a].bp-tb[m.a].bc;}var arr=[];for(var ti=0;ti<teams.length;ti++)arr.push(Object.assign({name:teams[ti]},tb[teams[ti]]));arr.sort(function(a,b){return b.pts-a.pts||b.d-a.d||b.bp-a.bp;});return arr;}
+
+/* ═══════════════════════════════ GROUPS ════════════════════════════════════ */
+function randId(n){var c='abcdefghijklmnopqrstuvwxyz0123456789',r='';for(var i=0;i<n;i++)r+=c[Math.floor(Math.random()*c.length)];return r;}
+function groupUrl(gid){return window.location.origin+window.location.pathname+'?g='+gid;}
+async function createGroup(name){if(!sb||!name.trim())return{ok:false,msg:'Nom vide'};var gid=randId(6);var r=await fetch(SUPABASE_URL+'/rest/v1/groups',{method:'POST',headers:{'Content-Type':'application/json','apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Prefer':'return=representation'},body:JSON.stringify({id:gid,name:name.trim()})}).then(function(r){return r.json().then(function(d){return{ok:r.ok,data:d};});});if(!r.ok)return{ok:false,msg:r.data.message||'Erreur'};var nd=Array.isArray(r.data)?r.data[0]:r.data;DB.groups.push(nd);return{ok:true,group:nd};}
+async function deleteGroup(gid){if(!sb)return;await sb.from('users').update({group_id:null}).eq('group_id',gid);await sb.from('groups').delete().eq('id',gid);DB.groups=DB.groups.filter(function(g){return g.id!==gid;});}
+
 
 function currentGroupName(){if(!GROUP_ID)return null;for(var i=0;i<DB.groups.length;i++)if(DB.groups[i].id===GROUP_ID)return DB.groups[i].name;return GROUP_ID;}
 
