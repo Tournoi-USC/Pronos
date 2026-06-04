@@ -1471,6 +1471,40 @@ async function init(){
   render();
 }
 init();
+
+function go(p){S.page=p;render();document.getElementById('sb').classList.remove('open');document.getElementById('ov').classList.remove('open');window.scrollTo(0,0);}
+
+function toast(msg,type){
+  var t=document.createElement('div');
+  t.className='toast'+(type==='err'?' err':type==='ok'?' ok':type==='info'?' info':'');
+  t.textContent=msg;
+  document.getElementById('tc').appendChild(t);
+  setTimeout(function(){if(t.parentNode)t.parentNode.removeChild(t);},3500);
+}
+
+function renderNav(){
+  var items=[
+    {p:'accueil',ic:'&#8962;',lb:'Accueil'},
+    {p:'matchs',ic:'&#128197;',lb:'Matchs'},
+    {p:'classement',ic:'&#8801;',lb:'Classement'},
+    {p:'groupes',ic:'&#128101;',lb:'Groupes'},
+    {p:'profil',ic:'&#128100;',lb:(S.user&&S.user!==ADMIN)?psd(S.user):'Mon profil'}
+  ];
+  if(isAdmin()) items.splice(4,0,{p:'stats',ic:'&#128202;',lb:'Statistiques'});
+  var h='';
+  for(var i=0;i<items.length;i++){
+    var it=items[i];
+    var nb2=(it.p==='matchs'&&S.user&&S.user!==ADMIN)?pendingCount():0;
+    var nb2H=nb2>0?'<span class="nav-badge">'+nb2+'</span>':'';
+    h+='<div class="ni'+(S.page===it.p?' on':'')+'" onclick="go(\''+it.p+'\')">'+'<span>'+it.ic+'</span> <span>'+it.lb+'</span>'+nb2H+'</div>';
+  }
+  if(S.user===ADMIN){
+    h+='<div class="ni" onclick="doLogout()" style="margin-top:auto;border-top:1px solid var(--bdr)"><span>&#8594;</span> <span>D\u00e9connexion admin</span></div>';
+  }
+  document.getElementById('snav').innerHTML=h;
+  var chip=document.getElementById('grp-chip');
+  if(chip) chip.innerHTML=currentGroupName()?'&#128101; '+currentGroupName():'';
+}
 </script>
 </body>
 </html>
