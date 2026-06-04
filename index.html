@@ -197,7 +197,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 <button class="ham" id="ham">&#9776;</button>
 <div class="ov" id="ov"></div>
 <nav class="sb" id="sb">
-  <div class="sb-logo" onclick="logoClick()">&#127942; <span>PRONO CDM 26/L2</span></div>
+  <div class="sb-logo" onclick="logoClick()">&#127942; <span>PRONO CDM 26</span></div>
   <div id="grp-chip" style="padding:4px 20px 8px;font-size:.72rem;color:var(--gold);opacity:.8"></div>
   <div class="sb-nav" id="snav"></div>
 </nav>
@@ -313,6 +313,40 @@ var supabase = {
     };
   }
 };
+
+var SUPABASE_URL = 'https://rkbrrndpajczwrhpjoaw.supabase.co';
+var SUPABASE_KEY = 'sb_publishable_vcRpMaKi9Ocqv0evibJ54w_eX6f3Ts8';
+var ADMIN = 'adminprono';
+var EMERGENCY_CODE = 'CDM2026RESCUE';
+var GROUP_ID = (typeof URLSearchParams!=='undefined')?(new URLSearchParams(window.location.search).get('g')||null):null;
+var S={user:null,page:'accueil',tab:'POULES',grp:'ALL',cpw:false,adm:false,qf:'all',statsTab:'global'};
+var adminMode=false;
+var logoClicks=0,logoTimer=null,syncTimer=null;
+var DB={users:[],userMap:{},pronos:{},results:{},config:{pin:'1234',apikey:''},groups:[]};
+
+var GR={
+A:["Mexique","Afrique du Sud","Corée du Sud","Tchéquie"],
+B:["Canada","Bosnie-et-Herzégovine","Qatar","Suisse"],
+C:["Brésil","Maroc","Haïti","Écosse"],
+D:["États-Unis","Paraguay","Australie","Turquie"],
+E:["Allemagne","Curaçao","Côte d'Ivoire","Équateur"],
+F:["Pays-Bas","Japon","Suède","Tunisie"],
+G:["Belgique","Égypte","RI Iran","Nouvelle-Zélande"],
+H:["Espagne","Cap-Vert","Arabie saoudite","Uruguay"],
+I:["France","Sénégal","Irak","Norvège"],
+J:["Argentine","Algérie","Autriche","Jordanie"],
+K:["Portugal","RD Congo","Ouzbékistan","Colombie"],
+L:["Angleterre","Croatie","Ghana","Panamá"]
+};
+var FL={"Mexique":"🇲🇽","Afrique du Sud":"🇿🇦","Corée du Sud":"🇰🇷","Tchéquie":"🇨🇿","Canada":"🇨🇦","Bosnie-et-Herzégovine":"🇧🇦","Qatar":"🇶🇦","Suisse":"🇨🇭","Brésil":"🇧🇷","Maroc":"🇲🇦","Haïti":"🇭🇹","Écosse":"🏴󠁧󠁢󠁳󠁣󠁴󠁿","États-Unis":"🇺🇸","Paraguay":"🇵🇾","Australie":"🇦🇺","Turquie":"🇹🇷","Allemagne":"🇩🇪","Curaçao":"🇨🇼","Côte d'Ivoire":"🇨🇮","Équateur":"🇪🇨","Pays-Bas":"🇳🇱","Japon":"🇯🇵","Suède":"🇸🇪","Tunisie":"🇹🇳","Belgique":"🇧🇪","Égypte":"🇪🇬","RI Iran":"🇮🇷","Nouvelle-Zélande":"🇳🇿","Espagne":"🇪🇸","Cap-Vert":"🇨🇻","Arabie saoudite":"🇸🇦","Uruguay":"🇺🇾","France":"🇫🇷","Sénégal":"🇸🇳","Irak":"🇮🇶","Norvège":"🇳🇴","Argentine":"🇦🇷","Algérie":"🇩🇿","Autriche":"🇦🇹","Jordanie":"🇯🇴","Portugal":"🇵🇹","RD Congo":"🇨🇩","Ouzbékistan":"🇺🇿","Colombie":"🇨🇴","Angleterre":"🏴󠁧󠁢󠁥󠁮󠁧󠁿","Croatie":"🇭🇷","Ghana":"🇬🇭","Panamá":"🇵🇦"};
+var TV={1:"M6 & beIN Sports",2:"beIN Sports",3:"M6 & beIN Sports",4:"beIN Sports",5:"M6 & beIN Sports",6:"M6 & beIN Sports",7:"beIN Sports",8:"beIN Sports",9:"M6 & beIN Sports",10:"M6 & beIN Sports",11:"beIN Sports",12:"beIN Sports",13:"M6 & beIN Sports",14:"M6 & beIN Sports",15:"M6 & beIN Sports",16:"beIN Sports",17:"M6 & beIN Sports",18:"M6 & beIN Sports",19:"beIN Sports",20:"beIN Sports",21:"M6 & beIN Sports",22:"M6 & beIN Sports",23:"beIN Sports",24:"beIN Sports",25:"M6 & beIN Sports",26:"M6 & beIN Sports",27:"beIN Sports",28:"beIN Sports",29:"M6 & beIN Sports",30:"M6 & beIN Sports",31:"M6 & beIN Sports",32:"beIN Sports",33:"M6 & beIN Sports",34:"M6 & beIN Sports",35:"beIN Sports",36:"beIN Sports",37:"M6 & beIN Sports",38:"M6 & beIN Sports",39:"beIN Sports",40:"beIN Sports",41:"M6 & beIN Sports",42:"M6 & beIN Sports",43:"beIN Sports",44:"beIN Sports",45:"M6 & beIN Sports",46:"M6 & beIN Sports",47:"beIN Sports",48:"beIN Sports",49:"M6 & beIN Sports",50:"beIN Sports",51:"M6 & beIN Sports",52:"beIN Sports",53:"beIN Sports",54:"beIN Sports",55:"beIN Sports",56:"M6 & beIN Sports",57:"beIN Sports",58:"M6 & beIN Sports",59:"beIN Sports",60:"beIN Sports",61:"M6 & beIN Sports",62:"beIN Sports",63:"beIN Sports",64:"M6 & beIN Sports",65:"beIN Sports",66:"beIN Sports",67:"M6 & beIN Sports",68:"beIN Sports",69:"M6 & beIN Sports",70:"beIN Sports",71:"beIN Sports",72:"beIN Sports"};
+var APIMAP={"Mexico":"Mexique","South Africa":"Afrique du Sud","Korea Republic":"Corée du Sud","Czechia":"Tchéquie","Czech Republic":"Tchéquie","Canada":"Canada","Bosnia and Herzegovina":"Bosnie-et-Herzégovine","Qatar":"Qatar","Switzerland":"Suisse","Brazil":"Brésil","Morocco":"Maroc","Haiti":"Haïti","Scotland":"Écosse","USA":"États-Unis","United States":"États-Unis","Paraguay":"Paraguay","Australia":"Australie","Turkey":"Turquie","Germany":"Allemagne","Curacao":"Curaçao","Ivory Coast":"Côte d'Ivoire","Cote d'Ivoire":"Côte d'Ivoire","Ecuador":"Équateur","Netherlands":"Pays-Bas","Japan":"Japon","Sweden":"Suède","Tunisia":"Tunisie","Belgium":"Belgique","Egypt":"Égypte","Iran":"RI Iran","New Zealand":"Nouvelle-Zélande","Spain":"Espagne","Cape Verde":"Cap-Vert","Saudi Arabia":"Arabie saoudite","Uruguay":"Uruguay","France":"France","Senegal":"Sénégal","Iraq":"Irak","Norway":"Norvège","Argentina":"Argentine","Algeria":"Algérie","Austria":"Autriche","Jordan":"Jordanie","Portugal":"Portugal","DR Congo":"RD Congo","Congo DR":"RD Congo","Uzbekistan":"Ouzbékistan","Colombia":"Colombie","England":"Angleterre","Croatia":"Croatie","Ghana":"Ghana","Panama":"Panamá"};
+// Matches fallback (remplacé par Supabase au chargement)
+var M=[
+{id:1,ph:"POULES",gr:"A",dt:"2026-06-11",ti:"21:00",h:"Mexique",a:"Afrique du Sud",v:"Mexico City"},
+{id:73,ph:"BARRAGES",gr:null,dt:"2026-06-28",ti:"21:00",h:"2A",a:"2B",v:"Los Angeles"},
+{id:104,ph:"FINALE",gr:null,dt:"2026-07-19",ti:"21:00",h:"W101",a:"W102",v:"New York"}
+];
 
 function currentGroupName(){if(!GROUP_ID)return null;for(var i=0;i<DB.groups.length;i++)if(DB.groups[i].id===GROUP_ID)return DB.groups[i].name;return GROUP_ID;}
 
@@ -508,17 +542,6 @@ function pgNoGroup() {
   return null;
 }
 
-/* ═══════════════════════════════════════════════
-   CONFIGURATION — modifier ces 2 lignes
-═══════════════════════════════════════════════ */
-var SUPABASE_URL = 'https://rkbrrndpajczwrhpjoaw.supabase.co';
-var SUPABASE_KEY = 'sb_publishable_vcRpMaKi9Ocqv0evibJ54w_eX6f3Ts8';
-
-/* ═══════════════════════════════════════════════
-   CONSTANTES
-═══════════════════════════════════════════════ */
-var ADMIN = 'adminprono';
-var EMERGENCY_CODE = 'CDM2026RESCUE'; 
 function render() {
   try {
     renderNav();
