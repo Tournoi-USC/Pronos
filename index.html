@@ -323,6 +323,24 @@ var S={user:null,page:'accueil',tab:'POULES',grp:'ALL',cpw:false,adm:false,qf:'a
 var adminMode=false;
 var logoClicks=0,logoTimer=null,syncTimer=null;
 var DB={users:[],userMap:{},pronos:{},results:{},config:{pin:'1234',apikey:''},groups:[]};
+var sb = null;
+var SB_ERROR = '';
+function initSB() {
+  if (!SUPABASE_URL || SUPABASE_URL === 'VOTRE_URL_SUPABASE' || !SUPABASE_KEY) {
+    SB_ERROR = 'URL ou clé Supabase manquante';
+    return false;
+  }
+  try {
+    sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    SB_ERROR = '';
+    return true;
+  } catch(e) {
+    SB_ERROR = 'Erreur init: ' + e.message;
+    console.error('Supabase init error:', e);
+    return false;
+  }
+}
+
 
 var GR={
 A:["Mexique","Afrique du Sud","Corée du Sud","Tchéquie"],
