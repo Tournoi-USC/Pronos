@@ -723,66 +723,94 @@ function pgMatchs() {
   if (!sb) return pgSetup();
   var phases=['POULES','BARRAGES','HUITIÈMES','QUARTS','DEMIS','PETITE FINALE','FINALE'];
   var labels={'POULES':'Poules','BARRAGES':'Barrages','HUITIÈMES':'8es de finale','QUARTS':'Quarts','DEMIS':'Demi-finales','PETITE FINALE':'3e place','FINALE':'Finale'};
+
+  // 1. Phase + group filter
   var filtered=[];
   for (var mi=0; mi<M.length; mi++) {
     var m=M[mi]; if(m.ph!==S.tab) continue;
-    if (S.tab==='POULES'&&S.grp!=='ALL'&&m.gr!==S.grp) continue;
+    if(S.tab==='POULES'&&S.grp!=='ALL'&&m.gr!==S.grp) continue;
     filtered.push(m);
   }
+
+  // 2. Login banner
   var banner='';
   if (!S.user||S.user===ADMIN) {
     banner='<div class="lb2"><h3 style="margin-bottom:4px">Connectez-vous pour pronostiquer</h3>'
-     +'<p style="color:var(--muted);font-size:.79rem;margin-bottom:12px">Premi&egrave;re fois ? Pseudo + mot de passe \u2014 compte cr\u00e9\u00e9 automatiquement.</p>'
+     +'<p style="color:var(--muted);font-size:.79rem;margin-bottom:12px">Première fois ? Pseudo + mot de passe — compte créé automatiquement.</p>'
      +'<div class="lf">'
      +'<input class="fi" id="lp" placeholder="Pseudo (ex: Zizou98)" autocomplete="username">'
      +'<div style="position:relative;flex:1;min-width:160px"><input class="fi" id="lpw" type="password" placeholder="Mot de passe" style="width:100%;padding-right:40px"><span id="tpwbtn" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);cursor:pointer;color:var(--muted)">&#128065;</span></div>'
      +'<button class="btn-g" onclick="hLogin()">Jouer</button></div>'
      +'<div id="lerr" style="color:var(--red);font-size:.78rem;margin-top:5px"></div></div>';
   }
+
+  // 3. Phase tabs
   var tabsH='<div class="tabs">';
-  for (var pi=0; pi<phases.length; pi++) { var p=phases[pi]; tabsH+='<button class="tb'+(S.tab===p?' on':'')+'" onclick="setTab(\''+p+'\')">'+labels[p]+'</button>'; }
+  for (var pi=0;pi<phases.length;pi++){var p=phases[pi];tabsH+='<button class="tb'+(S.tab===p?' on':'')+'" onclick="setTab(&apos;'+p+'&apos;)">'+labels[p]+'</button>';}
   tabsH+='</div>';
+
+  // 4. Group filter (poules only)
   var grpH='';
-  if (S.tab==='POULES') {
-    grpH='<div class="gf"><button class="gb'+(S.grp==='ALL'?' on':'')+'" onclick="setGrp(\'ALL\')">Tous groupes</button>';
-    var gk=Object.keys(GR); for(var gi=0;gi<gk.length;gi++) grpH+='<button class="gb'+(S.grp===gk[gi]?' on':'')+'" onclick="setGrp(\''+gk[gi]+'\')">'+gk[gi]+'</button>';
+  if(S.tab==='POULES'){
+    grpH='<div class="gf"><button class="gb'+(S.grp==='ALL'?' on':'')+'" onclick="setGrp(&apos;ALL&apos;)">Tous groupes</button>';
+    var gk=Object.keys(GR);
+    for(var gi=0;gi<gk.length;gi++) grpH+='<button class="gb'+(S.grp===gk[gi]?' on':'')+'" onclick="setGrp(&apos;'+gk[gi]+'&apos;)">'+gk[gi]+'</button>';
     grpH+='</div>';
   }
-  var cards=''; for(var ci=0;ci<filtered.length;ci++) cards+=cardMatch(filtered[ci]);
-  var saveBar='';
+
+  // 5. Quick filters + apply filter BEFORE generating cards
+  var qfH='';
   if(S.user&&S.user!==ADMIN){
-    saveBar='<div class="save-bar" id="save-bar"><button onclick="hSaveAll()">&#128190; <span>Sauvegarder tous mes pronostics</span> <span class="count" id="prono-count">0 saisi(s)</span></button></div>';
-  }
-  var qfH = '';
-  if (S.user && S.user !== ADMIN) {
-    var pc = pendingCount();
-    var todayStr2 = new Date().toLocaleDateString('fr-CA');
-    var todayCount = filtered.filter(function(m){ return m.dt === todayStr2; }).length;
-    qfH = '<div class="qf">'
-      + '<button class="qfb'+(S.qf==='all'?' on':'')+'" onclick="setQF(&apos;all&apos;)">Tous</button>'
-      + (todayCount>0?'<button class="qfb'+(S.qf==='today'?' on':'')+'" onclick="setQF(&apos;today&apos;)">&#128197; Du jour ('+todayCount+')</button>':'')
-      + '<button class="qfb'+(S.qf==='open'?' on':'')+'" onclick="setQF(&apos;open&apos;)">&#128274; Sans prono ('+pc+')</button>'
-      + '<button class="qfb'+(S.qf==='done'?' on':'')+'" onclick="setQF(&apos;done&apos;)">&#10003; Déjà saisis</button>'
-      + '</div>';
-    if (S.qf !== 'all') {
-      var pr2 = uPronos(S.user || '');
-      var todayStr = new Date().toLocaleDateString('fr-CA'); // YYYY-MM-DD local
-      filtered = filtered.filter(function(m) {
-        var hasPr = !!pr2[m.id];
-        var isOpen = new Date() < new Date(m.dt + 'T' + m.ti);
-        if (S.qf === 'today') return m.dt === todayStr;
-        if (S.qf === 'open') return isOpen && !hasPr;
-        if (S.qf === 'done') return hasPr;
+    var pr2=uPronos(S.user);
+    var todayStr=new Date().toLocaleDateString('fr-CA');
+    var pc=0,todayCount=0;
+    for(var fi=0;fi<filtered.length;fi++){
+      var fm=filtered[fi];
+      var fOpen=new Date()<new Date(fm.dt+'T'+fm.ti);
+      if(fOpen&&!pr2[fm.id]) pc++;
+      if(fm.dt===todayStr) todayCount++;
+    }
+    // Apply filter NOW before building cards
+    if(S.qf!=='all'){
+      filtered=filtered.filter(function(m){
+        var hasPr=!!pr2[m.id];
+        var isOpen=new Date()<new Date(m.dt+'T'+m.ti);
+        if(S.qf==='today') return m.dt===todayStr;
+        if(S.qf==='open') return isOpen&&!hasPr;
+        if(S.qf==='done') return hasPr;
         return true;
       });
     }
+    qfH='<div class="qf">'
+      +'<button class="qfb'+(S.qf==='all'?' on':'')+'" onclick="setQF(&apos;all&apos;)">Tous</button>'
+      +(todayCount>0?'<button class="qfb'+(S.qf==='today'?' on':'')+'" onclick="setQF(&apos;today&apos;)">&#128197; Du jour ('+todayCount+')</button>':'')
+      +'<button class="qfb'+(S.qf==='open'?' on':'')+'" onclick="setQF(&apos;open&apos;)">&#128274; Sans prono ('+pc+')</button>'
+      +'<button class="qfb'+(S.qf==='done'?' on':'')+'" onclick="setQF(&apos;done&apos;)">&#10003; Déjà saisis</button>'
+      +'</div>';
   }
-  var notifH = '';
-  if (S.user && S.user !== ADMIN && notifSupported() && notifStatus() === 'default') {
-    notifH = '<div class="notif-bar"><p>&#128276; Recevez une notification dès qu&apos;un score tombe, même navigateur fermé</p><button class="btn-g" style="padding:7px 14px;font-size:.8rem" onclick="requestNotif()">Activer</button></div>';
+
+  // 6. Notification banner
+  var notifH='';
+  if(S.user&&S.user!==ADMIN&&notifSupported()&&notifStatus()==='default'){
+    notifH='<div class="notif-bar"><p>&#128276; Recevez une notification dès qu&apos;un score tombe, même navigateur fermé</p><button class="btn-g" style="padding:7px 14px;font-size:.8rem" onclick="requestNotif()">Activer</button></div>';
   }
-  return '<div class="pt">LES MATCHS</div><p class="psub">Tous les 104 matchs &middot; Saisissez votre pronostic directement sur chaque carte.</p>'+notifH+banner+tabsH+grpH+qfH+'<div class="mg">'+ cards+'</div>'+saveBar;
+
+  // 7. Generate cards AFTER filter applied
+  var cards='';
+  for(var ci=0;ci<filtered.length;ci++) cards+=cardMatch(filtered[ci]);
+
+  // 8. Save bar
+  var saveBar='';
+  if(S.user&&S.user!==ADMIN){
+    saveBar='<div class="save-bar"><button onclick="hSaveAll()">&#128190; <span>Sauvegarder tous mes pronostics</span> <span class="count" id="prono-count">0 saisi(s)</span></button></div>';
+  }
+
+  return '<div class="pt">LES MATCHS</div><p class="psub">Tous les 104 matchs &middot; Saisissez votre pronostic directement sur chaque carte.</p>'
+    +notifH+banner+tabsH+grpH+qfH
+    +(filtered.length===0?'<div class="empty" style="margin-top:20px">Aucun match pour ce filtre.</div>':'<div class="mg">'+cards+'</div>')
+    +saveBar;
 }
+
 function cardMatch(m) {
   var res=getRes(m.id), pr=S.user?uPronos(S.user):{}, pn=pr[m.id]||null;
   var dt=new Date(m.dt+'T'+m.ti), started=(new Date())>=dt;
