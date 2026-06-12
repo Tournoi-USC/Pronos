@@ -533,11 +533,10 @@ function buildAdminPanel() {
       +'<h4 style="margin-bottom:6px">&#128260; Sync automatique</h4>'
       +'<p style="font-size:.75rem;color:var(--muted);margin-bottom:8px">API <a href="https://www.football-data.org/client/register" target="_blank" style="color:var(--gold)">football-data.org</a> (gratuite). 2h apr\u00e8s chaque match.</p>'
       +pendingH
-      +'<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;margin-bottom:6px">'
-      +'<input class="fi" id="apikey" placeholder="Cl\u00e9 API" value="'+apikey+'" style="flex:2;min-width:160px">'
-      +'<button class="btn-g" onclick="hSaveKey()">&#128190;</button>'
-      +'<button class="btn-g" onclick="autoFetch(false)" style="background:#3a3a6e;color:#fff">&#8635;</button></div>'
-      +'<div id="synce" style="font-size:.75rem;color:var(--muted)"></div>';
+      +'<p style="font-size:.75rem;color:var(--grn);margin-bottom:8px">&#10003; Edge Function Supabase active &mdash; scores récupérés automatiquement 2h après chaque match.</p>'
+      +pendingH
+      +'<button class="btn-g" onclick="autoFetch(false)" style="background:#3a3a6e;color:#fff">&#8635; Forcer une sync maintenant</button>'
+      +'<div id="synce" style="font-size:.75rem;color:var(--muted);margin-top:6px"></div>';
   }
 
   else if (S.adminTab === 'joueurs') {
@@ -973,7 +972,7 @@ function getMatchesPendingSync(){
 async function autoFetch(silent) {
   if (!silent) toast('Synchronisation en cours...');
   try {
-    var resp = await fetch('https://rkbrrndpajczwrhpjoaw.supabase.co/functions/v1/sync-scores', {
+    var resp = await fetch('https://rkbrrndpajczwrhpjoaw.supabase.co/functions/v1/sync-scores?force=1', {
       method: 'POST',
       headers: {
         'Authorization': 'Bearer ' + SUPABASE_KEY,
