@@ -888,7 +888,7 @@ function pgGroupes() {
     var g=gk[gi], st=standings(g), rows='';
     for (var ri=0; ri<st.length; ri++) {
       var t=st[ri], diff=(t.d>0?'+':'')+t.d, dc=t.d>0?'var(--grn)':t.d<0?'var(--red)':'var(--muted)';
-      rows+='<tr'+(ri<2?' class="qual"':'')+'><td style="color:var(--muted);width:20px">'+(ri+1)+'</td><td class="tc">'+(FL[t.name]||'')+' '+t.name+'</td><td>'+t.j+'</td><td>'+t.g+'</td><td>'+t.n+'</td><td>'+t.p+'</td><td style="color:'+dc+'">'+diff+'</td><td class="pc">'+t.pts+'</td></tr>';
+      rows+='<tr'+(ri<2?' class="qual"':'')+'><td style="color:var(--muted);width:20px">'+(ri+1)+'</td><td class="tc">'+(FL[t.name]||'')+' '+(adminMode&&isAdmin()?'<input class="fi team-card-inp" data-oldname="'+t.name+'" value="'+t.name+'" style="padding:2px 6px;font-size:.78rem;width:140px" onchange="hSaveTeamName(this)">':t.name)+'</td><td>'+t.j+'</td><td>'+t.g+'</td><td>'+t.n+'</td><td>'+t.p+'</td><td style="color:'+dc+'">'+diff+'</td><td class="pc">'+t.pts+'</td></tr>';
     }
     h+='<div class="gc"><div class="ghd"><span class="gbadge">GROUPE</span><span style="font-weight:800;font-size:1.05rem">'+g+'</span></div><table class="gt"><thead><tr><th></th><th style="text-align:left">Equipe</th><th>J</th><th>G</th><th>N</th><th>P</th><th>Diff</th><th style="color:var(--gold)">Pts</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
   }
@@ -1695,6 +1695,59 @@ async function hSaveTeamInline(inp) {
   if (errors===0) {
     inp.style.borderColor = 'var(--grn)';
     toast(updated+' match(s) mis à jour : "'+oldVal+'" → "'+newVal+'" ✓');
+    setTimeout(function(){ render(); }, 500);
+  } else {
+    inp.style.borderColor = 'var(--red)';
+    toast(errors+' erreur(s)', 'err');
+  }
+}
+
+async function hSaveTeamName(inp) {
+  var oldName = inp.getAttribute('data-oldname');
+  var newName = inp.value.trim();
+  if (!newName || newName === oldName) return;
+  inp.style.borderColor = 'var(--gold)';
+
+  // Update local GR array
+  for (var g in GR) {
+    for (var i=0; i<GR[g].length; i++) {
+      if (GR[g][i] === oldName) GR[g][i] = newName;
+    }
+  }
+  // Update local FL (flags)
+  if (FL[oldName]) { FL[newName] = FL[oldName]; delete FL[oldName]; }
+  // Update local M array
+  for (var j=0; j<M.length; j++) {
+    if (M[j].h === oldName) M[j].h = newName;
+    if (M[j].a === oldName) M[j].a = newName;
+  }
+  inp.setAttribute('data-oldname', newName);
+
+  // Update Supabase matches
+  var updated = 0, errors = 0;
+  var toUpdateH = M.filter(function(m){ return m.h === newName; });
+  var toUpdateA = M.filter(function(m){ return m.a === newName; });
+
+  for (var i=0; i<toUpdateH.length; i++) {
+    var r = await fetch(SUPABASE_URL+'/rest/v1/matches?id=eq.'+toUpdateH[i].id, {
+      method:'PATCH',
+      headers:{'Content-Type':'application/json','apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Prefer':'return=minimal'},
+      body: JSON.stringify({home: newName})
+    });
+    if(r.ok||r.status===204) updated++; else errors++;
+  }
+  for (var i=0; i<toUpdateA.length; i++) {
+    var r2 = await fetch(SUPABASE_URL+'/rest/v1/matches?id=eq.'+toUpdateA[i].id, {
+      method:'PATCH',
+      headers:{'Content-Type':'application/json','apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Prefer':'return=minimal'},
+      body: JSON.stringify({away: newName})
+    });
+    if(r2.ok||r2.status===204) updated++; else errors++;
+  }
+
+  if (errors === 0) {
+    inp.style.borderColor = 'var(--grn)';
+    toast('"'+oldName+'" → "'+newName+'" mis à jour ('+updated+' match(s)) ✓');
     setTimeout(function(){ render(); }, 500);
   } else {
     inp.style.borderColor = 'var(--red)';
