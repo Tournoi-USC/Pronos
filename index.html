@@ -972,14 +972,8 @@ function getMatchesPendingSync(){
 async function autoFetch(silent) {
   if (!silent) toast('Synchronisation en cours...');
   try {
-    var resp = await fetch('https://rkbrrndpajczwrhpjoaw.supabase.co/functions/v1/sync-scores?force=1', {
-      method: 'POST',
-      headers: {
-        'Authorization': 'Bearer ' + SUPABASE_KEY,
-        'Content-Type': 'application/json'
-      },
-      body: '{}'
-    });
+    // Simple GET sans headers custom = pas de preflight CORS
+    var resp = await fetch('https://rkbrrndpajczwrhpjoaw.supabase.co/functions/v1/sync-scores?force=1');
     var data = await resp.json();
     if (data.skipped) {
       if (!silent) toast(data.reason || 'Rien à synchroniser');
@@ -994,6 +988,7 @@ async function autoFetch(silent) {
     }
   } catch(e) {
     if (!silent) toast('Erreur: ' + e.message, 'err');
+    console.error('autoFetch error:', e);
   }
 }
 function startAutoSync(){ /* géré par Edge Function cron */ }
