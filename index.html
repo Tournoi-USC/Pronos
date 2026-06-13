@@ -1502,32 +1502,6 @@ function getMatchesPendingSync(){
   }
   return pending;
 }
-async function autoFetch(silent){
-  var apikey=DB.config.apikey;if(!apikey){if(!silent)toast('Cl\u00e9 API manquante','err');return;}
-  var pending=getMatchesPendingSync();
-  if(!pending.length){if(!silent)toast('Aucun match \u00e0 synchroniser');return;}
-  if(!silent)toast('Synchronisation...');
-  try{
-    var resp=await fetch('https://api.football-data.org/v4/competitions/WC/matches?status=FINISHED',{headers:{'X-Auth-Token':apikey}});
-    if(!resp.ok) throw new Error('HTTP '+resp.status);
-    var data=await resp.json(),matches=data.matches||[],updated=0;
-    for(var i=0;i<matches.length;i++){
-      var am=matches[i];if(!am.score||!am.score.fullTime)continue;
-      var sc=am.score.fullTime;if(sc.home===null||sc.away===null)continue;
-      var aHome=APIMAP[am.homeTeam.name]||APIMAP[am.homeTeam.shortName]||'';
-      var aAway=APIMAP[am.awayTeam.name]||APIMAP[am.awayTeam.shortName]||'';
-      for(var j=0;j<pending.length;j++){
-        if(DB.results[pending[j].id])continue;
-        var hOk=pending[j].h===aHome||(!aHome&&pending[j].h.toLowerCase().indexOf((am.homeTeam.shortName||'').toLowerCase())>-1);
-        var aOk=pending[j].a===aAway||(!aAway&&pending[j].a.toLowerCase().indexOf((am.awayTeam.shortName||'').toLowerCase())>-1);
-        if(hOk&&aOk){await setRes(pending[j].id,sc.home,sc.away);updated++;break;}
-      }
-    }
-    var still=getMatchesPendingSync().length;
-    if(!silent||updated>0) toast(updated+' score(s) mis \u00e0 jour'+(still>0?' \u2014 '+still+' en attente':''));
-    if(updated>0) render();
-  }catch(e){toast('Erreur API: '+e.message,'err');}
-}
 function startAutoSync(){
   setInterval(function(){
     if(!isAdmin()||!adminMode||!DB.config.apikey)return;
