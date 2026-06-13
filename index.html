@@ -970,25 +970,27 @@ function getMatchesPendingSync(){
   return pending;
 }
 async function autoFetch(silent) {
-  if (!silent) toast('Synchronisation en cours...');
-  try {
-    // Simple GET sans headers custom = pas de preflight CORS
-    var resp = await fetch('https://rkbrrndpajczwrhpjoaw.supabase.co/functions/v1/sync-scores?force=1');
-    var data = await resp.json();
-    if (data.skipped) {
-      if (!silent) toast(data.reason || 'Rien à synchroniser');
-    } else if (data.updated > 0) {
-      toast(data.updated + ' score(s) mis à jour ✓');
+  if (!silent) {
+    toast('Synchronisation lancée...');
+    // Ouvre la Edge Function dans un iframe caché
+    var ef = document.getElementById('sync-frame');
+    if (!ef) {
+      ef = document.createElement('iframe');
+      ef.id = 'sync-frame';
+      ef.style.display = 'none';
+      document.body.appendChild(ef);
+    }
+    ef.src = 'https://rkbrrndpajczwrhpjoaw.supabase.co/functions/v1/sync-scores?force=1';
+    // Après 4 secondes, recharge les données depuis Supabase
+    setTimeout(async function() {
       await loadAll();
       render();
-    } else if (data.notFound > 0) {
-      if (!silent) toast(data.notFound + ' match(s) non trouvé(s) dans l\'API');
-    } else {
-      if (!silent) toast('Synchronisation OK — aucun nouveau score');
-    }
-  } catch(e) {
-    if (!silent) toast('Erreur: ' + e.message, 'err');
-    console.error('autoFetch error:', e);
+      toast('Données rechargées depuis Supabase ✓');
+    }, 4000);
+  } else {
+    // Mode cron: simple reload des données
+    await loadAll();
+    if (S.page==='classement'||S.page==='accueil') render();
   }
 }
 function startAutoSync(){ /* géré par Edge Function cron */ }
