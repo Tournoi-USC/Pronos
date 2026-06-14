@@ -836,7 +836,7 @@ function cardMatch(m) {
   }
   return '<div class="mc'+(pn&&S.user!==ADMIN?' hp':'')+(res?' fin':'')+'">'
    +'<div class="mh"><span class="mtag">Match #'+m.id+(m.gr?' &middot; Grp '+m.gr:'')+'</span><span class="ms'+(res?' fin':'')+'">'+(res?'TERMIN&Eacute;':'&Agrave; VENIR')+'</span></div>'
-   +(adminMode&&isAdmin()
+   +(isAdmin()
     ? '<div class="mteams">'
       +'<div class="team"><span class="tf">'+flag(hName)+'</span>'
       +'<input class="fi team-card-inp" data-mid="'+m.id+'" data-side="h" value="'+hName+'" placeholder="Équipe domicile" style="padding:4px 8px;font-size:.82rem;margin-top:2px" onchange="hSaveTeamInline(this)">'
@@ -884,12 +884,12 @@ function pgGroupes() {
     fH+='<button class="gb'+(S.grp===allGk[fi]?' on':'')+'" onclick="setGrp(&apos;'+allGk[fi]+'&apos;)">'+allGk[fi]+'</button>';
   }
   fH+='</div>';
-  var h='<div class="pt">PHASE DE GROUPES</div><p class="psub" style="margin-bottom:4px">Classement en temps r&eacute;el des 12 groupes (A-L).</p>'+fH+'<div class="gg">';
+  var h='<div class="pt">PHASE DE GROUPES</div><p class="psub" style="margin-bottom:4px">Classement en temps r&eacute;el des 12 groupes (A-L).</p>'+(isAdmin()?' <div style="background:rgba(245,166,35,.1);border:1px solid rgba(245,166,35,.3);border-radius:8px;padding:8px 14px;font-size:.78rem;color:var(--gold);margin-bottom:12px">&#9998; Mode admin : cliquez sur un nom d\'&eacute;quipe pour le modifier</div>':'')+fH+'<div class="gg">';
   for (var gi=0; gi<gk.length; gi++) {
     var g=gk[gi], st=standings(g), rows='';
     for (var ri=0; ri<st.length; ri++) {
       var t=st[ri], diff=(t.d>0?'+':'')+t.d, dc=t.d>0?'var(--grn)':t.d<0?'var(--red)':'var(--muted)';
-      rows+='<tr'+(ri<2?' class="qual"':'')+'><td style="color:var(--muted);width:20px">'+(ri+1)+'</td><td class="tc">'+(FL[t.name]||'')+' '+(adminMode&&isAdmin()?'<input class="fi team-card-inp" data-oldname="'+t.name+'" value="'+t.name+'" style="padding:2px 6px;font-size:.78rem;width:140px" onchange="hSaveTeamName(this)">':t.name)+'</td><td>'+t.j+'</td><td>'+t.g+'</td><td>'+t.n+'</td><td>'+t.p+'</td><td style="color:'+dc+'">'+diff+'</td><td class="pc">'+t.pts+'</td></tr>';
+      rows+='<tr'+(ri<2?' class="qual"':'')+'><td style="color:var(--muted);width:20px">'+(ri+1)+'</td><td class="tc">'+(FL[t.name]||'')+' '+(isAdmin()?'<input class="fi team-card-inp" data-oldname="'+t.name+'" value="'+t.name+'" style="padding:2px 6px;font-size:.78rem;width:140px" onchange="hSaveTeamName(this)">':t.name)+'</td><td>'+t.j+'</td><td>'+t.g+'</td><td>'+t.n+'</td><td>'+t.p+'</td><td style="color:'+dc+'">'+diff+'</td><td class="pc">'+t.pts+'</td></tr>';
     }
     h+='<div class="gc"><div class="ghd"><span class="gbadge">GROUPE</span><span style="font-weight:800;font-size:1.05rem">'+g+'</span></div><table class="gt"><thead><tr><th></th><th style="text-align:left">Equipe</th><th>J</th><th>G</th><th>N</th><th>P</th><th>Diff</th><th style="color:var(--gold)">Pts</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
   }
