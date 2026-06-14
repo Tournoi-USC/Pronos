@@ -762,7 +762,7 @@ function pgMatchs() {
   var qfH='';
   if(S.user&&S.user!==ADMIN){
     var pr2=uPronos(S.user);
-    var todayStr=new Date().toLocaleDateString('fr-CA');
+    var now2=new Date(); var todayStr=now2.getFullYear()+'-'+String(now2.getMonth()+1).padStart(2,'0')+'-'+String(now2.getDate()).padStart(2,'0');
     var pc=0,todayCount=0;
     for(var fi=0;fi<filtered.length;fi++){
       var fm=filtered[fi];
@@ -813,7 +813,7 @@ function pgMatchs() {
 
 function cardMatch(m) {
   var res=getRes(m.id), pr=S.user?uPronos(S.user):{}, pn=pr[m.id]||null;
-  var dt=new Date(m.dt+'T'+m.ti), started=(new Date())>=dt;
+  var dt=new Date(m.dt+'T'+m.ti+':00+02:00'), started=(new Date())>=dt;
   var hName = m.h;
   var aName = m.a;
   var ptb=(S.user&&S.user!==ADMIN&&pn&&res)?ptBadge(m.id,S.user):null;
@@ -849,7 +849,7 @@ function cardMatch(m) {
     : '<div class="mteams"><div class="team"><span class="tf">'+flag(hName)+'</span><div class="tn">'+hName+'</div></div><div style="text-align:center">'+scoreBlock+'</div><div class="team" style="text-align:right"><span class="tf">'+flag(aName)+'</span><div class="tn">'+aName+'</div></div></div>'
   )
    +pronoBlock+adminBlock
-   +'<div class="mf2"><span>&#128197; '+dateStr+' &middot; &#128205; '+m.v+'</span>'+'<span>'+(tvTag(m.id)?tvTag(m.id)+' ':'')+countdown(m.dt,m.ti)+'</span></div>'+(!started&&S.user&&S.user!==ADMIN?'<div style="font-size:.7rem;color:var(--muted);margin-top:4px;text-align:right">'+'&#128274; Prono jusqu\'au '+new Date(m.dt+'T'+m.ti).toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'})+'  '+m.ti+'</div>':'')+'</div>';
+   +'<div class="mf2"><span>&#128197; '+dateStr+' &middot; &#128205; '+m.v+'</span>'+'<span>'+(tvTag(m.id)?tvTag(m.id)+' ':'')+countdown(m.dt,m.ti)+'</span></div>'+(!started&&S.user&&S.user!==ADMIN?'<div style="font-size:.7rem;color:var(--muted);margin-top:4px;text-align:right">'+'&#128274; Prono jusqu\'au '+new Date(m.dt+'T'+m.ti+':00+02:00').toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'})+'  à '+m.ti+'</div>':'')+'</div>';
 }
 
 /* ═══════════════════════════════════════════════
@@ -952,7 +952,7 @@ function logoClick(){
   logoTimer=setTimeout(function(){logoClicks=0;},2000);
 }
 function countdown(dt,ti){
-  var kickoff=new Date(dt+'T'+ti),diff=kickoff-new Date();
+  var kickoff=new Date(dt+'T'+ti+':00+02:00'),diff=kickoff-new Date();
   if(diff<=0)return '';
   var h=Math.floor(diff/3600000),m=Math.floor((diff%3600000)/60000);
   var cls=h<2?'hot':h<12?'warm':'ok';
@@ -1486,7 +1486,7 @@ function logoClick(){
   logoTimer=setTimeout(function(){logoClicks=0;},2000);
 }
 function countdown(dt,ti){
-  var kickoff=new Date(dt+'T'+ti),diff=kickoff-new Date();
+  var kickoff=new Date(dt+'T'+ti+':00+02:00'),diff=kickoff-new Date();
   if(diff<=0) return '';
   var h=Math.floor(diff/3600000),m=Math.floor((diff%3600000)/60000);
   var cls=h<2?'hot':h<12?'warm':'ok';
