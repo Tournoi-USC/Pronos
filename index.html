@@ -1056,6 +1056,14 @@ async function init(){
       }catch(e){}
     }
   }
+  // Redirect non-admin user to their group if on root URL
+  if (!GROUP_ID && S.user && S.user!==ADMIN) {
+    var udataR = DB.userMap[S.user];
+    if (udataR && udataR.group_id) {
+      window.location.replace(window.location.pathname + '?g=' + udataR.group_id);
+      return;
+    }
+  }
   try{setupRealtime();}catch(e){console.warn('Realtime:',e);}
   startAutoSync();
   render();
@@ -1607,6 +1615,14 @@ async function init(){
     S.user=ses;
     if(Object.keys(DB.pronos[ses]||{}).length===0){
       try{var cached=localStorage.getItem('cdm_pronos_'+ses);if(cached)DB.pronos[ses]=JSON.parse(cached);}catch(e){}
+    }
+  }
+  // Redirect non-admin user to their group if on root URL
+  if (!GROUP_ID && S.user && S.user!==ADMIN) {
+    var udataR = DB.userMap[S.user];
+    if (udataR && udataR.group_id) {
+      window.location.replace(window.location.pathname + '?g=' + udataR.group_id);
+      return;
     }
   }
   try{setupRealtime();}catch(e){console.warn('Realtime:',e);}
