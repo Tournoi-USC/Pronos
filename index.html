@@ -778,14 +778,18 @@ function pgMatchs() {
         var hasPr=!!pr2[m.id];
         var isOpen=new Date()<new Date(m.dt+'T'+m.ti);
         if(S.qf==='today') return m.dt===todayStr;
+        if(S.qf==='pending') return !DB.results[m.id];
         if(S.qf==='open') return isOpen&&!hasPr;
         if(S.qf==='done') return hasPr;
         return true;
       });
     }
+    var finishedCount = filtered.filter(function(m){ return !!DB.results[m.id]; }).length;
+    var pendingCount2 = filtered.length - finishedCount;
     qfH='<div class="qf">'
-      +'<button class="qfb'+(S.qf==='all'?' on':'')+'" onclick="setQF(&apos;all&apos;)">Tous</button>'
+      +'<button class="qfb'+(S.qf==='all'?' on':'')+'" onclick="setQF(&apos;all&apos;)">Tous ('+filtered.length+')</button>'
       +(todayCount>0?'<button class="qfb'+(S.qf==='today'?' on':'')+'" onclick="setQF(&apos;today&apos;)">&#128197; Du jour ('+todayCount+')</button>':'')
+      +'<button class="qfb'+(S.qf==='pending'?' on':'')+'" onclick="setQF(&apos;pending&apos;)">&#9201; À venir ('+pendingCount2+')</button>'
       +'<button class="qfb'+(S.qf==='open'?' on':'')+'" onclick="setQF(&apos;open&apos;)">&#128274; Sans prono ('+pc+')</button>'
       +'<button class="qfb'+(S.qf==='done'?' on':'')+'" onclick="setQF(&apos;done&apos;)">&#10003; Déjà saisis</button>'
       +'</div>';
