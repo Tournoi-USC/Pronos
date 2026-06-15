@@ -387,7 +387,16 @@ function hsh(s){var h=5381;for(var i=0;i<s.length;i++)h=((h<<5)+h)^s.charCodeAt(
 function psd(k){return DB.userMap[k]?DB.userMap[k].pseudo_display:k;}
 function isAdmin(){return S.user===ADMIN;}
 function flag(f){return FL[f]||'';}
-function tvTag(id){var t=TV[id];if(!t)return '';var h='';if(t.indexOf('M6')>-1)h+='<span class="tv-tag tv-m6">&#128250; M6</span> ';if(t.indexOf('beIN')>-1)h+='<span class="tv-tag tv-bein">&#128250; beIN</span>';return h;}
+function tvTag(id){
+  var t=TV[id];
+  // Pour les phases finales (id>72): M6 & beIN Sports diffusent les matchs importants
+  if(!t&&id>72) t='M6 & beIN Sports';
+  if(!t)return '';
+  var h='';
+  if(t.indexOf('M6')>-1)h+='<span class="tv-tag tv-m6">&#128250; M6</span> ';
+  if(t.indexOf('beIN')>-1)h+='<span class="tv-tag tv-bein">&#128250; beIN</span>';
+  return h;
+}
 function gv(id){var el=document.getElementById(id);return el?el.value:'';}
 
 /* ═══════════════════════════════ AUTH ══════════════════════════════════════ */
@@ -544,7 +553,7 @@ function buildAdminPanel() {
       +pendingH
       +'<p style="font-size:.75rem;color:var(--grn);margin-bottom:8px">&#10003; Edge Function Supabase active &mdash; scores récupérés automatiquement 2h après chaque match.</p>'
       +pendingH
-      +'<button class="btn-g" onclick="autoFetch(false)" style="background:#3a3a6e;color:#fff">&#8635; Forcer une sync maintenant</button>'
+      +(DB.config.apikey?'':'<div style="background:rgba(239,68,68,.1);border:1px solid var(--red);border-radius:6px;padding:6px 12px;font-size:.75rem;color:#f87171;margin-bottom:6px">&#9888; Clé API football-data.org non configurée dans les secrets Supabase</div>')+'<button class="btn-g" onclick="autoFetch(false)" style="background:#3a3a6e;color:#fff">&#8635; Forcer une sync maintenant</button>'
       +'<div id="synce" style="font-size:.75rem;color:var(--muted);margin-top:6px"></div>';
   }
 
@@ -814,7 +823,12 @@ function pgMatchs() {
   // 8. Save bar
   var saveBar='';
   if(S.user&&S.user!==ADMIN){
-    saveBar='<div class="save-bar"><button onclick="hSaveAll()">&#128190; <span>Sauvegarder tous mes pronostics</span> <span class="count" id="prono-count">0 saisi(s)</span></button></div>';
+    saveBar=(function(){
+  var alreadySaved=Object.keys(uPronos(S.user)).length;
+  return '<div class="save-bar"><button onclick="hSaveAll()">&#128190; <span>Sauvegarder tous mes pronostics</span> <span class="count" id="prono-count">0 saisi(s)</span></button>'
+    +(alreadySaved?'<span style="font-size:.72rem;color:var(--muted);margin-left:8px">'+alreadySaved+' en base</span>':'')
+    +'</div>';
+})();
   }
 
   return '<div class="pt">LES MATCHS</div><p class="psub">Tous les 104 matchs &middot; Saisissez votre pronostic directement sur chaque carte.</p>'
