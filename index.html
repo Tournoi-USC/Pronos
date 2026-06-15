@@ -389,8 +389,6 @@ function isAdmin(){return S.user===ADMIN;}
 function flag(f){return FL[f]||'';}
 function tvTag(id){
   var t=TV[id];
-  // Pour les phases finales (id>72): M6 & beIN Sports diffusent les matchs importants
-  if(!t&&id>72) t='M6 & beIN Sports';
   if(!t)return '';
   var h='';
   if(t.indexOf('M6')>-1)h+='<span class="tv-tag tv-m6">&#128250; M6</span> ';
