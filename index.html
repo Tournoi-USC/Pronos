@@ -75,6 +75,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .team{flex:1}
 .tn{font-weight:700;font-size:.9rem}
 .tf{display:block;margin-bottom:6px;height:20px}
+.team-card-inp{max-width:130px;min-width:60px;padding:3px 6px !important;font-size:.78rem !important;width:100% !important}
 .tf img{height:18px;border-radius:2px;box-shadow:0 1px 3px rgba(0,0,0,.3)}
 .sd{display:flex;align-items:center;gap:4px}
 .sb2{background:var(--bg);border:1px solid var(--bdr);border-radius:6px;width:36px;height:36px;display:flex;align-items:center;justify-content:center;font-size:1rem;font-weight:800}
@@ -198,7 +199,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 <button class="ham" id="ham" onclick="toggleMenu()">&#9776; Menu</button>
 <div class="ov" id="ov"></div>
 <nav class="sb" id="sb">
-  <div class="sb-logo" onclick="logoClick()">&#127942; <span>PRONO CDM 26</span><span style="font-size:.6rem;opacity:.45;margin-left:6px;font-weight:400">v2.0.0</span></div>
+  <div class="sb-logo" onclick="logoClick()">&#127942; <span>PRONO CDM 26</span><span style="font-size:.6rem;opacity:.45;margin-left:6px;font-weight:400">v2.1.0</span></div>
   <div id="grp-chip" style="padding:4px 20px 8px;font-size:.72rem;color:var(--gold);opacity:.8"></div>
   <div class="sb-nav" id="snav"></div>
 </nav>
@@ -862,11 +863,11 @@ function cardMatch(m) {
    +(isAdmin()
     ? '<div class="mteams">'
       +'<div class="team"><span class="tf">'+flag(hName)+'</span>'
-      +'<input class="fi team-card-inp" data-mid="'+m.id+'" data-side="h" value="'+hName+'" placeholder="Équipe domicile" style="padding:4px 8px;font-size:.82rem;margin-top:2px" onchange="hSaveTeamInline(this)">'
+      +'<input class="fi team-card-inp" data-mid="'+m.id+'" data-side="h" value="'+hName+'" placeholder="Domicile" style="margin-top:2px" onchange="hSaveTeamInline(this)">'
       +'</div>'
       +'<div style="text-align:center">'+scoreBlock+'</div>'
       +'<div class="team" style="text-align:right"><span class="tf">'+flag(aName)+'</span>'
-      +'<input class="fi team-card-inp" data-mid="'+m.id+'" data-side="a" value="'+aName+'" placeholder="Équipe extérieur" style="padding:4px 8px;font-size:.82rem;margin-top:2px;text-align:right" onchange="hSaveTeamInline(this)">'
+      +'<input class="fi team-card-inp" data-mid="'+m.id+'" data-side="a" value="'+aName+'" placeholder="Extérieur" style="margin-top:2px;text-align:right" onchange="hSaveTeamInline(this)">'
       +'</div>'
       +'</div>'
     : '<div class="mteams"><div class="team"><span class="tf">'+flag(hName)+'</span><div class="tn">'+hName+'</div></div><div style="text-align:center">'+scoreBlock+'</div><div class="team" style="text-align:right"><span class="tf">'+flag(aName)+'</span><div class="tn">'+aName+'</div></div></div>'
