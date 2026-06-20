@@ -1688,9 +1688,7 @@ function renderNav(){
     var nb2H=nb2>0?'<span class="nav-badge">'+nb2+'</span>':'';
     h+='<div class="ni'+(S.page===it.p?' on':'')+'" onclick="go(\''+it.p+'\')">'+'<span>'+it.ic+'</span> <span>'+it.lb+'</span>'+nb2H+'</div>';
   }
-  if(S.user===ADMIN){
-    h+='<div class="ni" onclick="doLogout()" style="margin-top:auto;border-top:1px solid var(--bdr)"><span>&#8594;</span> <span>D\u00e9connexion admin</span></div>';
-  }
+
   document.getElementById('snav').innerHTML=h;
   var chip=document.getElementById('grp-chip');
   if(chip) chip.innerHTML=currentGroupName()?'&#128101; '+currentGroupName():'';
