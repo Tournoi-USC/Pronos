@@ -790,7 +790,15 @@ function pgMatchs() {
       if(fOpen&&!pr2[fm.id]) pc++;
       if(fm.dt===todayStr) todayCount++;
     }
-    // Apply filter NOW before building cards
+    // Apply search filters
+    if(S.search){
+      var sq=S.search.toLowerCase();
+      filtered=filtered.filter(function(m){ return m.h.toLowerCase().includes(sq)||m.a.toLowerCase().includes(sq); });
+    }
+    if(S.searchDate){
+      filtered=filtered.filter(function(m){ return m.dt===S.searchDate; });
+    }
+    // Apply quick filter NOW before building cards
     if(S.qf!=='all'){
       filtered=filtered.filter(function(m){
         var hasPr=!!pr2[m.id];
@@ -833,8 +841,14 @@ function pgMatchs() {
 })();
   }
 
+  var searchH = '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">'
+    +'<input class="fi" id="srch-team" placeholder="🔍 Équipe..." value="'+S.search+'" oninput="S.search=this.value;render()" style="flex:1;min-width:140px;padding:7px 12px;font-size:.82rem">'
+    +'<input class="fi" id="srch-date" type="date" value="'+S.searchDate+'" onchange="S.searchDate=this.value;render()" style="flex:1;min-width:140px;padding:7px 12px;font-size:.82rem">'
+    +(S.search||S.searchDate?'<button class="rsb" onclick="S.search=\'\';S.searchDate=\'\';render()" style="white-space:nowrap">✕ Effacer</button>':'')
+    +'</div>';
+
   return '<div class="pt">LES MATCHS</div><p class="psub">Tous les 104 matchs &middot; Saisissez votre pronostic directement sur chaque carte.</p>'
-    +notifH+banner+tabsH+grpH+qfH
+    +notifH+banner+tabsH+grpH+searchH+qfH
     +(filtered.length===0?'<div class="empty" style="margin-top:20px">Aucun match pour ce filtre.</div>':'<div class="mg">'+cards+'</div>')
     +saveBar;
 }
@@ -927,7 +941,7 @@ function pgGroupes() {
 /* ═══════════════════════════════════════════════
    HANDLERS PRINCIPAUX
 ═══════════════════════════════════════════════ */
-function setTab(t){S.tab=t;S.grp='ALL';S.qf='all';render();}
+function setTab(t){S.tab=t;S.grp='ALL';S.qf='all';S.search='';S.searchDate='';render();}
 function setGrp(g){S.grp=g;render();}
 function setQF(f){S.qf=f;render();}
 function tCpw(){S.cpw=!S.cpw;render();}
