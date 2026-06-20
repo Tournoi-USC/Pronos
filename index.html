@@ -841,9 +841,27 @@ function pgMatchs() {
 })();
   }
 
+  // Build team list from current phase
+  var teams = {};
+  for(var ti2=0;ti2<filtered.length;ti2++){
+    teams[filtered[ti2].h]=1;
+    teams[filtered[ti2].a]=1;
+  }
+  var teamOpts = '<option value="">Toutes les équipes</option>';
+  Object.keys(teams).sort().forEach(function(t){ teamOpts+='<option value="'+t+'"'+(S.search===t?' selected':'')+'>'+t+'</option>'; });
+
+  // Build date list from current phase
+  var dates = {};
+  for(var di=0;di<filtered.length;di++) dates[filtered[di].dt]=1;
+  var dateOpts = '<option value="">Toutes les dates</option>';
+  Object.keys(dates).sort().forEach(function(d){
+    var dl=new Date(d+'T12:00:00').toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'});
+    dateOpts+='<option value="'+d+'"'+(S.searchDate===d?' selected':'')+'>'+dl+'</option>';
+  });
+
   var searchH = '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">'
-    +'<input class="fi" id="srch-team" placeholder="🔍 Équipe..." value="'+S.search+'" oninput="S.search=this.value;render()" style="flex:1;min-width:140px;padding:7px 12px;font-size:.82rem">'
-    +'<input class="fi" id="srch-date" type="date" value="'+S.searchDate+'" onchange="S.searchDate=this.value;render()" style="flex:1;min-width:140px;padding:7px 12px;font-size:.82rem">'
+    +'<select class="fi" onchange="S.search=this.value;render()" style="flex:1;min-width:160px;padding:7px 12px;font-size:.82rem">'+teamOpts+'</select>'
+    +'<select class="fi" onchange="S.searchDate=this.value;render()" style="flex:1;min-width:160px;padding:7px 12px;font-size:.82rem">'+dateOpts+'</select>'
     +(S.search||S.searchDate?'<button class="rsb" onclick="S.search=\'\';S.searchDate=\'\';render()" style="white-space:nowrap">✕ Effacer</button>':'')
     +'</div>';
 
