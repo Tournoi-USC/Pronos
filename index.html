@@ -462,7 +462,11 @@ function currentGroupName(){if(!GROUP_ID)return null;for(var i=0;i<DB.groups.len
 function pgProfil() {
   if (!sb) return pgSetup();
   if (!S.user||S.user===ADMIN) {
-    return '<div class="pt">MON PROFIL</div><div style="margin-top:40px;text-align:center"><div style="font-size:3rem;margin-bottom:16px">&#128100;</div><p style="color:var(--muted);margin-bottom:20px">Connectez-vous depuis la page Matchs.</p><button class="btn-g" onclick="go(\'matchs\')">Voir les matchs &#8594;</button></div>'+(S.user===ADMIN?buildAdminPanel():'');
+    return '<div class="pt">MON PROFIL</div>'
+      +(S.user===ADMIN
+        ?'<div style="display:flex;justify-content:flex-end;margin-bottom:16px"><button class="btn-o" onclick="doLogout()">&#8594; Déconnexion admin</button></div>'
+        :'<div style="margin-top:40px;text-align:center"><div style="font-size:3rem;margin-bottom:16px">&#128100;</div><p style="color:var(--muted);margin-bottom:20px">Connectez-vous depuis la page Matchs.</p><button class="btn-g" onclick="go(\'matchs\')">Voir les matchs &#8594;</button></div>')
+      +(S.user===ADMIN?buildAdminPanel():'');
   }
   var ps=psd(S.user),st=pts(S.user),pr=uPronos(S.user),res=DB.results;
   var plist=[],prk=Object.keys(pr);
