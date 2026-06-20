@@ -860,8 +860,8 @@ function pgMatchs() {
   });
 
   var searchH = '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">'
-    +'<select class="fi" onchange="S.search=this.value;render()" style="flex:1;min-width:160px;padding:7px 12px;font-size:.82rem">'+teamOpts+'</select>'
-    +'<select class="fi" onchange="S.searchDate=this.value;render()" style="flex:1;min-width:160px;padding:7px 12px;font-size:.82rem">'+dateOpts+'</select>'
+    +'<select class="fi" id="sel-team" onchange="setSearchTeam(this.value)" oninput="setSearchTeam(this.value)" style="flex:1;min-width:160px;padding:7px 12px;font-size:.82rem">'+teamOpts+'</select>'
+    +'<select class="fi" id="sel-date" onchange="setSearchDate(this.value)" oninput="setSearchDate(this.value)" style="flex:1;min-width:160px;padding:7px 12px;font-size:.82rem">'+dateOpts+'</select>'
     +(S.search||S.searchDate?'<button class="rsb" onclick="S.search=\'\';S.searchDate=\'\';render()" style="white-space:nowrap">✕ Effacer</button>':'')
     +'</div>';
 
@@ -1858,6 +1858,9 @@ function goToMatch(matchId) {
     if (el) el.closest('.mc') ? el.closest('.mc').scrollIntoView({behavior:'smooth', block:'center'}) : el.scrollIntoView({behavior:'smooth'});
   }, 150);
 }
+
+function setSearchTeam(v){ S.search=v; render(); }
+function setSearchDate(v){ S.searchDate=v; render(); }
 </script>
 </body>
 </html>
