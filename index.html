@@ -27,7 +27,7 @@
 })();
 </script>
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Prono CDM 26 v2.2.0</title>
+<title>Prono CDM 26 v2.3.0</title>
 <meta name="theme-color" content="#f5a623">
 <meta name="mobile-web-app-capable" content="yes">
 <style>
@@ -331,10 +331,10 @@ var supabase = {
 
 var SUPABASE_URL = 'https://rkbrrndpajczwrhpjoaw.supabase.co';
 var SUPABASE_KEY = 'sb_publishable_vcRpMaKi9Ocqv0evibJ54w_eX6f3Ts8';
-var ADMIN = 'adminprono';
-var EMERGENCY_CODE = 'CDM2026RESCUE';
-var VERSION = '2.2.0';
-var BUILD = '20/06/2026 20:23';
+var ADMIN = atob('YWRtaW5wcm9ubw==');
+// Emergency code stored in Supabase config
+var VERSION = '2.3.0';
+var BUILD = '20/06/2026 20:48';
 var GROUP_ID = (typeof URLSearchParams!=='undefined')?(new URLSearchParams(window.location.search).get('g')||null):null;
 var S={user:null,page:'accueil',tab:'POULES',grp:'ALL',cpw:false,adm:false,qf:'all',statsTab:'global'};
 var adminMode=false;
@@ -1073,7 +1073,10 @@ async function autoFetch(silent) {
 function startAutoSync(){ /* géré par Edge Function cron */ }
 async function doEmergency(){
   var sec=gv('em-secret'),np=gv('em-np'),npin=gv('em-npin'),emsg=document.getElementById('em-msg');
-  if(sec!=='CDM2026RESCUE'){if(emsg){emsg.textContent='Code secret incorrect.';emsg.style.color='var(--red)';}return;}
+  // Verify emergency code against Supabase config
+  var rEmg=await sb.from('config').select('value').eq('key','emergency_code').single();
+  var storedCode=rEmg&&rEmg.data?rEmg.data.value:'';
+  if(!storedCode||sec!==storedCode){if(emsg){emsg.textContent='Code secret incorrect.';emsg.style.color='var(--red)';}return;}
   if(np.length>=3){
     var uu=DB.userMap[ADMIN];
     if(!uu){var r=await sb.from('users').insert({pseudo_key:ADMIN,pseudo_display:'adminprono',hash:hsh(np)}).single();if(!r.error){DB.users.push(r.data);DB.userMap[ADMIN]=r.data;}}
