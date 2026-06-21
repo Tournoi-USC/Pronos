@@ -433,11 +433,11 @@ async function doLogin(pseudo,pw){
       DB.users.push(nu);DB.userMap[k]=nu;DB.pronos[k]={};
     }
   }
-  S.user=k;localStorage.setItem('cdm_ses',k);
+  S.user=k;localStorage.setItem('cdm_ses',k);localStorage.setItem('cdm_grp',GROUP_ID||'');
   if(k===ADMIN&&GROUP_ID){try{await loadAll();}catch(e){}}
   return{ok:true};
 }
-function doLogout(){S.user=null;adminMode=false;localStorage.removeItem('cdm_ses');updateAdminBanner();go('accueil');}
+function doLogout(){S.user=null;adminMode=false;localStorage.removeItem('cdm_ses');localStorage.removeItem('cdm_grp');updateAdminBanner();go('accueil');}
 async function chgPw(o,n){var uu=DB.userMap[S.user];if(!uu)return{ok:false,msg:'Introuvable'};if(uu.hash!==hsh(o))return{ok:false,msg:'Ancien mdp incorrect'};if(n.length<3)return{ok:false,msg:'Trop court'};await sb.from('users').update({hash:hsh(n)}).eq('id',uu.id);uu.hash=hsh(n);return{ok:true};}
 async function admReset(pseudo,np,pin){if(pin!==DB.config.pin)return{ok:false,msg:'PIN incorrect'};var k=pseudo.toLowerCase().trim(),uu=DB.userMap[k];if(!uu)return{ok:false,msg:'Joueur introuvable'};await sb.from('users').update({hash:hsh(np)}).eq('id',uu.id);uu.hash=hsh(np);return{ok:true};}
 
@@ -725,7 +725,8 @@ function pgAccueil() {
   var syncStatus = '';
   if (pending > 0 && isAdmin()) syncStatus = '<div style="margin-top:8px;padding:8px 12px;background:rgba(245,166,35,.1);border:1px solid var(--gold);border-radius:8px;font-size:.78rem">&#9889; '+pending+' match(s) en attente de score &mdash; <span onclick="autoFetch(false)" style="cursor:pointer;text-decoration:underline">Synchroniser maintenant</span></div>';
   var h = '<div class="htag">&#127942; COUPE DU MONDE 2026</div>'
-   +'<div class="htitle">&Agrave; VOS PRONOS&nbsp;!</div>'+(function(){var now4=new Date();var next=null;for(var ni=0;ni<M.length;ni++){var km=new Date(M[ni].dt+'T'+M[ni].ti+':00+02:00');if(km>now4&&(!next||km<new Date(next.dt+'T'+next.ti+':00+02:00'))){next=M[ni];}}if(!next) return '';var diff=new Date(next.dt+'T'+next.ti+':00+02:00')-now4;var h=Math.floor(diff/3600000),m2=Math.floor((diff%3600000)/60000);var label=h>24?Math.floor(h/24)+'j '+( h%24)+'h':h+'h'+m2+'min';return '<div style="margin-top:14px;background:rgba(245,166,35,.08);border:1px solid rgba(245,166,35,.2);border-radius:10px;padding:10px 16px;display:inline-flex;align-items:center;gap:10px;cursor:pointer" data-gm="'+next.id+'" id="next-match-card">'+'<span style="font-size:1.2rem">&#9201;</span>'+'<div><div style="font-size:.75rem;color:var(--muted)">Prochain match</div>'+'<div style="font-weight:700;font-size:.9rem">'+next.h+' vs '+next.a+'</div>'+'<div style="font-size:.72rem;color:var(--gold)">dans '+label+'</div></div></div>';})()+(currentGroupName()?'<div style="margin-top:10px;display:inline-flex;align-items:center;gap:6px;background:rgba(245,166,35,.15);border:1px solid rgba(245,166,35,.4);border-radius:20px;padding:4px 14px;font-size:.8rem;font-weight:700;color:var(--gold)">&#128101; Groupe : '+currentGroupName()+'</div>':'')
+   +(currentGroupName()?'<div style="font-size:.78rem;color:var(--gold);font-weight:600;margin-bottom:4px">&#128101; '+currentGroupName()+'</div>':'')
+    +'<div class="htitle">&Agrave; VOS PRONOS&nbsp;!</div>'+(function(){var now4=new Date();var next=null;for(var ni=0;ni<M.length;ni++){var km=new Date(M[ni].dt+'T'+M[ni].ti+':00+02:00');if(km>now4&&(!next||km<new Date(next.dt+'T'+next.ti+':00+02:00'))){next=M[ni];}}if(!next) return '';var diff=new Date(next.dt+'T'+next.ti+':00+02:00')-now4;var h=Math.floor(diff/3600000),m2=Math.floor((diff%3600000)/60000);var label=h>24?Math.floor(h/24)+'j '+( h%24)+'h':h+'h'+m2+'min';return '<div style="margin-top:14px;background:rgba(245,166,35,.08);border:1px solid rgba(245,166,35,.2);border-radius:10px;padding:10px 16px;display:inline-flex;align-items:center;gap:10px;cursor:pointer" data-gm="'+next.id+'" id="next-match-card">'+'<span style="font-size:1.2rem">&#9201;</span>'+'<div><div style="font-size:.75rem;color:var(--muted)">Prochain match</div>'+'<div style="font-weight:700;font-size:.9rem">'+next.h+' vs '+next.a+'</div>'+'<div style="font-size:.72rem;color:var(--gold)">dans '+label+'</div></div></div>';})()+(currentGroupName()?'<div style="margin-top:10px;display:inline-flex;align-items:center;gap:6px;background:rgba(245,166,35,.15);border:1px solid rgba(245,166,35,.4);border-radius:20px;padding:4px 14px;font-size:.8rem;font-weight:700;color:var(--gold)">&#128101; Groupe : '+currentGroupName()+'</div>':'')
    +'<p class="hsub">La comp&eacute;tition fait rage. Ne manquez aucun match, marquez des points et hissez-vous au sommet du classement.</p>'
    +syncStatus
    +'<div class="sg">'
@@ -1119,6 +1120,13 @@ async function init(){
   if(!initSB()){render();return;}
   try{await loadAll();}catch(e){console.error('loadAll:',e);toast('Erreur chargement: '+e.message,'err');}
   var ses=localStorage.getItem('cdm_ses');
+  var sesGrp=localStorage.getItem('cdm_grp')||'';
+  // If user switches group URL → force re-login
+  if(ses && ses!==ADMIN && GROUP_ID && sesGrp!==GROUP_ID){
+    localStorage.removeItem('cdm_ses');
+    localStorage.removeItem('cdm_grp');
+    ses=null;
+  }
   if(ses&&DB.userMap[ses]){
     S.user=ses;
     // Restore pronos from localStorage backup if Supabase returned none
@@ -1687,6 +1695,13 @@ async function init(){
   if(!initSB()){render();return;}
   try{await loadAll();}catch(e){console.error('loadAll:',e);toast('Erreur: '+e.message,'err');}
   var ses=localStorage.getItem('cdm_ses');
+  var sesGrp=localStorage.getItem('cdm_grp')||'';
+  // If user switches group URL → force re-login
+  if(ses && ses!==ADMIN && GROUP_ID && sesGrp!==GROUP_ID){
+    localStorage.removeItem('cdm_ses');
+    localStorage.removeItem('cdm_grp');
+    ses=null;
+  }
   if(ses&&DB.userMap[ses]){
     S.user=ses;
     if(Object.keys(DB.pronos[ses]||{}).length===0){
