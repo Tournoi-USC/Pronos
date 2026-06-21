@@ -1133,7 +1133,7 @@ async function init(){
     if(Object.keys(DB.pronos[ses]||{}).length===0){
       try{
         try{
-          var cached=localStorage.getItem('cdm_pronos_'+ses);
+          var cached=localStorage.getItem('cdm_pronos_'+(GROUP_ID||'root')+'_'+ses);
           if(cached&&cached.trim()) DB.pronos[ses]=JSON.parse(cached);
         }catch(ex){}
       }catch(e){}
@@ -1530,7 +1530,7 @@ async function hSaveAll(){
     var txt = await resp.text();
     console.log('Upsert status:', resp.status, 'body:', txt);
     if(resp.ok || resp.status===201 || resp.status===204){
-      try{localStorage.setItem('cdm_pronos_'+S.user,JSON.stringify(DB.pronos[S.user]||{}));}catch(e){}
+      try{localStorage.setItem('cdm_pronos_'+(GROUP_ID||'root')+'_'+S.user,JSON.stringify(DB.pronos[S.user]||{}));}catch(e){}
       toast(saved+' pronostic(s) sauvegardé(s) ✓');
       render();
     } else {
@@ -1705,7 +1705,7 @@ async function init(){
   if(ses&&DB.userMap[ses]){
     S.user=ses;
     if(Object.keys(DB.pronos[ses]||{}).length===0){
-      try{var cached=localStorage.getItem('cdm_pronos_'+ses);if(cached)DB.pronos[ses]=JSON.parse(cached);}catch(e){}
+      try{var cached=localStorage.getItem('cdm_pronos_'+(GROUP_ID||'root')+'_'+ses);if(cached)DB.pronos[ses]=JSON.parse(cached);}catch(e){}
     }
   }
   // Redirect non-admin user to their group if on root URL
