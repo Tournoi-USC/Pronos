@@ -27,7 +27,7 @@
 })();
 </script>
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Prono CDM 26 v2.3.2</title>
+<title>Prono CDM 26 v2.3.3</title>
 <meta name="theme-color" content="#f5a623">
 <meta name="mobile-web-app-capable" content="yes">
 <style>
@@ -199,7 +199,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 <button class="ham" id="ham" onclick="toggleMenu()">&#9776; Menu</button>
 <div class="ov" id="ov"></div>
 <nav class="sb" id="sb">
-  <div class="sb-logo" onclick="logoClick()" style="cursor:default">&#127942; <span>PRONO CDM 26</span><span style="font-size:.6rem;opacity:.45;margin-left:6px;font-weight:400">v2.3.2</span></div>
+  <div class="sb-logo" onclick="logoClick()" style="cursor:default">&#127942; <span>PRONO CDM 26</span><span style="font-size:.6rem;opacity:.45;margin-left:6px;font-weight:400">v2.3.3</span></div>
   <div id="grp-chip" style="padding:4px 20px 8px;font-size:.72rem;color:var(--gold);opacity:.8"></div>
   <div class="sb-nav" id="snav"></div>
 </nav>
@@ -333,8 +333,8 @@ var SUPABASE_URL = atob('aHR0cHM6Ly9ya2Jycm5kcGFqY3p3cmhwam9hdw==')+atob('LnN1cG
 var SUPABASE_KEY = atob('c2JfcHVibGlzaGFibGVfdg==')+atob('Y1JwTWFLaTlPY3F2MGV2aQ==')+atob('Yko1NHdfZVg2ZjNUczg=');
 var ADMIN = atob('YWRtaW5wcm9ubw==');
 // Emergency code stored in Supabase config
-var VERSION = '2.3.2';
-var BUILD = '21/06/2026 07:03';
+var VERSION = '2.3.3';
+var BUILD = '21/06/2026 11:31';
 var GROUP_ID = (typeof URLSearchParams!=='undefined')?(new URLSearchParams(window.location.search).get('g')||null):null;
 var S={user:null,page:'accueil',tab:'POULES',grp:'ALL',cpw:false,adm:false,qf:'all',statsTab:'global'};
 var adminMode=false;
@@ -1420,7 +1420,9 @@ async function loadAll() {
       rU    = await sb.from('users').select('*').eq('pseudo_key', ADMIN);
       rUg   = await sb.from('users').select('*').eq('group_id', GROUP_ID);
       if (loggedSes && loggedSes !== ADMIN)
-        rUses = await sb.from('users').select('*').eq('pseudo_key', loggedSes);
+        var rUsesQ = sb.from('users').select('*').eq('pseudo_key', loggedSes);
+        if(GROUP_ID) rUsesQ = rUsesQ.eq('group_id', GROUP_ID);
+        rUses = await rUsesQ;
     } else {
       rU = await sb.from('users').select('*');
     }
@@ -1436,7 +1438,7 @@ async function loadAll() {
     var users = rU.data || [];
     var seenIds = {}; users.forEach(function(u){ seenIds[u.id]=true; });
     if(rUg&&rUg.data) rUg.data.forEach(function(u){ if(!seenIds[u.id]){users.push(u);seenIds[u.id]=true;} });
-    if(rUses&&rUses.data) rUses.data.forEach(function(u){ if(!seenIds[u.id]){users.push(u);seenIds[u.id]=true;} });
+    if(rUses&&rUses.data) rUses.data.forEach(function(u){ if(!seenIds[u.id]&&(!GROUP_ID||u.group_id===GROUP_ID)){users.push(u);seenIds[u.id]=true;} });
     var pronos  = rP.data || [];
     var results = rR.data || [];
     var config  = rC.data || [];
