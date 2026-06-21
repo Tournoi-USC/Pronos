@@ -27,7 +27,7 @@
 })();
 </script>
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Prono CDM 26 v2.3.1</title>
+<title>Prono CDM 26 v2.3.2</title>
 <meta name="theme-color" content="#f5a623">
 <meta name="mobile-web-app-capable" content="yes">
 <style>
@@ -199,7 +199,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 <button class="ham" id="ham" onclick="toggleMenu()">&#9776; Menu</button>
 <div class="ov" id="ov"></div>
 <nav class="sb" id="sb">
-  <div class="sb-logo" onclick="logoClick()" style="cursor:default">&#127942; <span>PRONO CDM 26</span><span style="font-size:.6rem;opacity:.45;margin-left:6px;font-weight:400">v2.3.1</span></div>
+  <div class="sb-logo" onclick="logoClick()" style="cursor:default">&#127942; <span>PRONO CDM 26</span><span style="font-size:.6rem;opacity:.45;margin-left:6px;font-weight:400">v2.3.2</span></div>
   <div id="grp-chip" style="padding:4px 20px 8px;font-size:.72rem;color:var(--gold);opacity:.8"></div>
   <div class="sb-nav" id="snav"></div>
 </nav>
@@ -333,8 +333,8 @@ var SUPABASE_URL = atob('aHR0cHM6Ly9ya2Jycm5kcGFqY3p3cmhwam9hdw==')+atob('LnN1cG
 var SUPABASE_KEY = atob('c2JfcHVibGlzaGFibGVfdg==')+atob('Y1JwTWFLaTlPY3F2MGV2aQ==')+atob('Yko1NHdfZVg2ZjNUczg=');
 var ADMIN = atob('YWRtaW5wcm9ubw==');
 // Emergency code stored in Supabase config
-var VERSION = '2.3.1';
-var BUILD = '21/06/2026 06:57';
+var VERSION = '2.3.2';
+var BUILD = '21/06/2026 07:03';
 var GROUP_ID = (typeof URLSearchParams!=='undefined')?(new URLSearchParams(window.location.search).get('g')||null):null;
 var S={user:null,page:'accueil',tab:'POULES',grp:'ALL',cpw:false,adm:false,qf:'all',statsTab:'global'};
 var adminMode=false;
@@ -418,15 +418,13 @@ async function doLogin(pseudo,pw){
       body:JSON.stringify({pseudo_key:k,pseudo_display:pseudo.trim(),hash:h,group_id:gid})
     }).then(function(r){return r.json().then(function(d){return{ok:r.ok,data:d};});});
     if(!insertRes.ok){
-      var fetchRes=await fetch(SUPABASE_URL+'/rest/v1/users?pseudo_key=eq.'+encodeURIComponent(k)+'&select=*',{
+      // Fetch by pseudo_key + group_id to avoid cross-group collision
+      var grpF=GROUP_ID?'&group_id=eq.'+encodeURIComponent(GROUP_ID):'&group_id=is.null';
+      var fetchRes=await fetch(SUPABASE_URL+'/rest/v1/users?pseudo_key=eq.'+encodeURIComponent(k)+grpF+'&select=*',{
         headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}
       }).then(function(r){return r.json();});
       if(!fetchRes||!fetchRes.length)return{ok:false,msg:'Erreur: '+(insertRes.data.message||'')};
       var newUser=fetchRes[0];
-      if(GROUP_ID&&!newUser.group_id&&k!==ADMIN){
-        await fetch(SUPABASE_URL+'/rest/v1/users?id=eq.'+newUser.id,{method:'PATCH',headers:{'Content-Type':'application/json','apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY},body:JSON.stringify({group_id:GROUP_ID})});
-        newUser.group_id=GROUP_ID;
-      }
       DB.users.push(newUser);DB.userMap[k]=newUser;DB.pronos[k]={};
     } else {
       var nu=Array.isArray(insertRes.data)?insertRes.data[0]:insertRes.data;
