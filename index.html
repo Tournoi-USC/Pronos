@@ -533,13 +533,14 @@ function buildAdminPanel() {
       var gg=DB.groups[gi],gurl=window.location.origin+window.location.pathname+'?g='+gg.id;
       var gcnt=DB.users.filter(function(u){return u.group_id===gg.id&&u.pseudo_key!==ADMIN;}).length;
       gh+='<div style="background:var(--bg);border:1px solid var(--bdr);border-radius:8px;padding:10px 14px;margin-bottom:6px">'
-        +'<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">'
-        +'<div><strong>&#128101; '+gg.name+'</strong> <span style="color:var(--muted);font-size:.72rem">('+gcnt+' joueur(s))</span></div>'
-        +'<div style="display:flex;gap:6px">+\'<button class="rsb" onclick="hRenameGroupPrompt(&apos;\'+gg.id+\'&apos;,&apos;\'+gg.name+\'&apos;)">&#9998; Renommer</button>\'\n        '
-        +'<button class="rsb" onclick="hCopyUrl(&apos;'+gurl+'&apos;)" style="background:#1a2e1a;color:var(--grn)">&#128279; URL</button>'
-        +'<button class="rsb" onclick="hDelGroup(&apos;'+gg.id+'&apos;)" style="color:var(--red)">&#128465;</button>'
-        +'</div></div>'
-        +'<div style="font-size:.7rem;color:var(--muted);margin-top:3px;word-break:break-all">'+gurl+'</div></div>';
+		+'<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">'
+		+'<div><strong>&#128101; '+gg.name+'</strong> <span style="color:var(--muted);font-size:.72rem">('+gcnt+' joueur(s))</span></div>'
+		+'<div style="display:flex;gap:6px">'
+		+'<button class="rsb" onclick="hRenameGroupPrompt(&apos;'+gg.id+'&apos;,&apos;'+gg.name+'&apos;)">&#9998; Renommer</button>'
+		+'<button class="rsb" onclick="hCopyUrl(&apos;'+gurl+'&apos;)" style="background:#1a2e1a;color:var(--grn)">&#128279; URL</button>'
+		+'<button class="rsb" onclick="hDelGroup(&apos;'+gg.id+'&apos;)" style="color:var(--red)">&#128465;</button>'
+		+'</div></div>'
+		+'<div style="font-size:.7rem;color:var(--muted);margin-top:3px;word-break:break-all">'+gurl+'</div></div>';
     }
     if(!DB.groups.length) gh='<p style="color:var(--muted);font-size:.8rem;margin-bottom:8px">Aucun groupe cr\u00e9\u00e9.</p>';
     panelContent = '<h4 style="margin-bottom:8px">&#128101; Groupes</h4>'+gh
