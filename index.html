@@ -379,7 +379,7 @@ var APIMAP={"Mexico":"Mexique","South Africa":"Afrique du Sud","Korea Republic":
 // Matches fallback (remplacé par Supabase au chargement)
 var M=[
 {id:1,ph:"POULES",gr:"A",dt:"2026-06-11",ti:"21:00",h:"Mexique",a:"Afrique du Sud",v:"Mexico City"},
-{id:73,ph:"BARRAGES",gr:null,dt:"2026-06-28",ti:"21:00",h:"2A",a:"2B",v:"Los Angeles"},
+{id:73,ph:"16ème",gr:null,dt:"2026-06-28",ti:"21:00",h:"2A",a:"2B",v:"Los Angeles"},
 {id:104,ph:"FINALE",gr:null,dt:"2026-07-19",ti:"21:00",h:"W101",a:"W102",v:"New York"}
 ];
 
@@ -610,7 +610,7 @@ function buildAdminPanel() {
   }
 
   else if (S.adminTab === 'equipes') {
-    var phases=['BARRAGES','HUITIÈMES','QUARTS','DEMIS','PETITE FINALE','FINALE'];
+    var phases=['16ème','HUITIÈMES','QUARTS','DEMIS','PETITE FINALE','FINALE'];
     var teamsH='<p style="font-size:.75rem;color:var(--muted);margin-bottom:12px;line-height:1.5">Saisissez les vrais noms des \u00e9quipes qualifi\u00e9es. Chaque modification met \u00e0 jour directement la base de donn\u00e9es.</p>';
     phases.forEach(function(ph){
       var ms=M.filter(function(m){return m.ph===ph;});
@@ -751,8 +751,8 @@ function pgAccueil() {
 ═══════════════════════════════════════════════ */
 function pgMatchs() {
   if (!sb) return pgSetup();
-  var phases=['POULES','BARRAGES','HUITIÈMES','QUARTS','DEMIS','PETITE FINALE','FINALE'];
-  var labels={'POULES':'Poules','BARRAGES':'Barrages','HUITIÈMES':'8es de finale','QUARTS':'Quarts','DEMIS':'Demi-finales','PETITE FINALE':'3e place','FINALE':'Finale'};
+  var phases=['POULES','16ème','HUITIÈMES','QUARTS','DEMIS','PETITE FINALE','FINALE'];
+  var labels={'POULES':'Poules','16ème':'16ème','HUITIÈMES':'8es de finale','QUARTS':'Quarts','DEMIS':'Demi-finales','PETITE FINALE':'3e place','FINALE':'Finale'};
 
   // 1. Phase + group filter
   var filtered=[];
