@@ -27,7 +27,7 @@
 })();
 </script>
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Prono CDM 26 v2.4.3</title>
+<title>Prono CDM 26 v2.4.4</title>
 <meta name="theme-color" content="#f5a623">
 <meta name="mobile-web-app-capable" content="yes">
 <style>
@@ -199,7 +199,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 <button class="ham" id="ham" onclick="toggleMenu()">&#9776; Menu</button>
 <div class="ov" id="ov"></div>
 <nav class="sb" id="sb">
-  <div class="sb-logo" onclick="logoClick()" style="cursor:default">&#127942; <span>PRONO CDM 26</span><span style="font-size:.6rem;opacity:.45;margin-left:6px;font-weight:400">v2.4.3</span></div>
+  <div class="sb-logo" onclick="logoClick()" style="cursor:default">&#127942; <span>PRONO CDM 26</span><span style="font-size:.6rem;opacity:.45;margin-left:6px;font-weight:400">v2.4.4</span></div>
   <div id="grp-chip" style="padding:4px 20px 8px;font-size:.72rem;color:var(--gold);opacity:.8"></div>
   <div class="sb-nav" id="snav"></div>
 </nav>
@@ -333,8 +333,8 @@ var SUPABASE_URL = atob('aHR0cHM6Ly9ya2Jycm5kcGFqY3p3cmhwam9hdw==')+atob('LnN1cG
 var SUPABASE_KEY = atob('c2JfcHVibGlzaGFibGVfdg==')+atob('Y1JwTWFLaTlPY3F2MGV2aQ==')+atob('Yko1NHdfZVg2ZjNUczg=');
 var ADMIN = atob('YWRtaW5wcm9ubw==');
 // Emergency code stored in Supabase config
-var VERSION = '2.4.3';
-var BUILD = '23/06/2026 08:39';
+var VERSION = '2.4.4';
+var BUILD = '24/06/2026 06:56';
 var GROUP_ID = (typeof URLSearchParams!=='undefined')?(new URLSearchParams(window.location.search).get('g')||null):null;
 var S={user:null,page:'accueil',tab:'POULES',grp:'ALL',cpw:false,adm:false,qf:'all',statsTab:'global'};
 var adminMode=false;
@@ -457,7 +457,7 @@ async function saveConfig(key,val){if(!sb)return;await sb.from('config').upsert(
 /* ═══════════════════════════════ SCORING ═══════════════════════════════════ */
 function pts(user){var pr=uPronos(user),res=DB.results,p=0,ex=0,ok=0,pl=0,ids=Object.keys(pr);for(var i=0;i<ids.length;i++){var pn=pr[ids[i]],r=res[ids[i]];if(!r)continue;pl++;if(pn.h===r.h&&pn.a===r.a){p+=3;ex++;}else if(Math.sign(pn.h-pn.a)===Math.sign(r.h-r.a)){p+=1;ok++;}}return{p:p,ex:ex,ok:ok,pl:pl};}
 function ptBadge(id,user){var pn=uPronos(user)[id],r=getRes(id);if(!pn||!r)return null;if(pn.h===r.h&&pn.a===r.a)return 'ex';return Math.sign(pn.h-pn.a)===Math.sign(r.h-r.a)?'ok':'no';}
-function lb(){var arr=[];for(var i=0;i<DB.users.length;i++){var u=DB.users[i];if(u.pseudo_key===ADMIN)continue;if(GROUP_ID&&u.group_id!==GROUP_ID)continue;var st=pts(u.id),pr=uPronos(u.id);arr.push({k:u.pseudo_key,id:u.id,gid:u.group_id,ps:u.pseudo_display,np:Object.keys(pr).length,p:st.p,ex:st.ex,ok:st.ok,pl:st.pl});}arr.sort(function(a,b){return b.p-a.p||b.ex-a.ex||b.ok-a.ok;});return arr;}
+function lb(){var arr=[];for(var i=0;i<DB.users.length;i++){var u=DB.users[i];if(u.pseudo_key===ADMIN)continue;if(GROUP_ID&&!isAdmin()&&u.group_id!==GROUP_ID)continue;var st=pts(u.id),pr=uPronos(u.id);arr.push({k:u.pseudo_key,id:u.id,gid:u.group_id,ps:u.pseudo_display,np:Object.keys(pr).length,p:st.p,ex:st.ex,ok:st.ok,pl:st.pl});}arr.sort(function(a,b){return b.p-a.p||b.ex-a.ex||b.ok-a.ok;});return arr;}
 function standings(g){var teams=GR[g],res=DB.results,tb={};for(var i=0;i<teams.length;i++)tb[teams[i]]={j:0,g:0,n:0,p:0,bp:0,bc:0,d:0,pts:0};for(var mi=0;mi<M.length;mi++){var m=M[mi];if(m.ph!=='POULES'||m.gr!==g)continue;var r=res[m.id];if(!r)continue;if(!tb[m.h]||!tb[m.a])continue;var h=r.h,a=r.a;tb[m.h].j++;tb[m.a].j++;tb[m.h].bp+=h;tb[m.h].bc+=a;tb[m.a].bp+=a;tb[m.a].bc+=h;if(h>a){tb[m.h].g++;tb[m.h].pts+=3;tb[m.a].p++;}else if(h<a){tb[m.a].g++;tb[m.a].pts+=3;tb[m.h].p++;}else{tb[m.h].n++;tb[m.h].pts++;tb[m.a].n++;tb[m.a].pts++;}tb[m.h].d=tb[m.h].bp-tb[m.h].bc;tb[m.a].d=tb[m.a].bp-tb[m.a].bc;}var arr=[];for(var ti=0;ti<teams.length;ti++)arr.push(Object.assign({name:teams[ti]},tb[teams[ti]]));arr.sort(function(a,b){return b.pts-a.pts||b.d-a.d||b.bp-a.bp;});return arr;}
 
 /* ═══════════════════════════════ GROUPS ════════════════════════════════════ */
@@ -587,7 +587,7 @@ function buildAdminPanel() {
         +'</tr></thead><tbody>';
       realUsers.forEach(function(u){
         var ugname=u.group_id?(grpMap2[u.group_id]||u.group_id):'<span style="color:var(--muted)">\u2014</span>';
-        var upts=pts(u.pseudo_key).p;
+        var upts=pts(u.id).p;
         userTableH+='<tr style="border-bottom:1px solid var(--bdr)">'
           +'<td style="padding:6px 10px;font-weight:600">'+u.pseudo_display+'</td>'
           +'<td style="padding:6px 10px;color:var(--gold)">'+ugname+'</td>'
@@ -1176,8 +1176,8 @@ function pgStats() {
   DB.groups.forEach(function(g){ grpMap[g.id] = {name:g.name, users:[], pts:0, exact:0, ok:0, pronos:0}; });
 
   allUsers.forEach(function(u) {
-    var st = pts(u.pseudo_key);
-    var pr = uPronos(u.pseudo_key);
+    var st = pts(u.id);
+    var pr = uPronos(u.id);
     totalPronos += Object.keys(pr).length;
     totalExact += st.ex;
     totalOk += st.ok;
@@ -1303,7 +1303,7 @@ function pgStats() {
       // Group leaderboard
       var gBoard = [];
       gUsers.forEach(function(u){
-        var st=pts(u.pseudo_key), pr=uPronos(u.pseudo_key);
+        var st=pts(u.id), pr=uPronos(u.id);
         gBoard.push({k:u.pseudo_key,ps:u.pseudo_display,np:Object.keys(pr).length,p:st.p,ex:st.ex,ok:st.ok});
       });
       gBoard.sort(function(a,b){return b.p-a.p||b.ex-a.ex||b.ok-a.ok;});
