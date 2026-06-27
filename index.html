@@ -27,13 +27,14 @@
 })();
 </script>
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Prono CDM 26 v2.5.6</title>
+<title>Prono CDM 26 v2.5.7</title>
 <meta name="theme-color" content="#f5a623">
 <meta name="mobile-web-app-capable" content="yes">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
+html{overflow-x:hidden}
 :root{--gold:#f5a623;--gold2:#ffbb44;--bg:#111;--card:#1c1c1c;--nav:#0d0d0d;--txt:#fff;--muted:#888;--bdr:#2a2a2a;--grn:#22c55e;--red:#ef4444;--sw:260px;--ban:0px}
-body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--txt);display:flex;min-height:100vh;padding-top:var(--ban)}
+body{overflow-x:hidden;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--txt);display:flex;min-height:100vh;padding-top:var(--ban)}
 .admin-banner{position:fixed;top:0;left:0;right:0;height:32px;background:var(--gold);color:#000;font-size:.78rem;font-weight:800;display:none;align-items:center;justify-content:center;z-index:400;gap:8px}
 .admin-banner.on{display:flex}
 .sb{width:var(--sw);background:var(--nav);position:fixed;top:var(--ban);left:0;height:calc(100vh - var(--ban));display:flex;flex-direction:column;z-index:100;border-right:1px solid var(--bdr)}
@@ -262,7 +263,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 <nav class="bnav" id="bnav" aria-label="Navigation principale"></nav>
 <div class="ov" id="ov"></div>
 <nav class="sb" id="sb">
-  <div class="sb-logo" onclick="logoClick()" style="cursor:default">&#127942; <span>PRONO CDM 26</span><span style="font-size:.6rem;opacity:.45;margin-left:6px;font-weight:400">v2.5.6</span></div>
+  <div class="sb-logo" onclick="logoClick()" style="cursor:default">&#127942; <span>PRONO CDM 26</span><span style="font-size:.6rem;opacity:.45;margin-left:6px;font-weight:400">v2.5.7</span></div>
   <div id="grp-chip" style="padding:4px 20px 8px;font-size:.72rem;color:var(--gold);opacity:.8"></div>
   <div class="sb-nav" id="snav"></div>
 </nav>
@@ -396,8 +397,8 @@ var SUPABASE_URL = atob('aHR0cHM6Ly9ya2Jycm5kcGFqY3p3cmhwam9hdw==')+atob('LnN1cG
 var SUPABASE_KEY = atob('c2JfcHVibGlzaGFibGVfdg==')+atob('Y1JwTWFLaTlPY3F2MGV2aQ==')+atob('Yko1NHdfZVg2ZjNUczg=');
 var ADMIN = atob('YWRtaW5wcm9ubw==');
 // Emergency code stored in Supabase config
-var VERSION = '2.5.6';
-var BUILD = '27/06/2026 11:00';
+var VERSION = '2.5.7';
+var BUILD = '27/06/2026 12:00';
 var GROUP_ID = (typeof URLSearchParams!=='undefined')?(new URLSearchParams(window.location.search).get('g')||null):null;
 var S={user:null,page:'accueil',tab:'POULES',grp:'ALL',cpw:false,adm:false,qf:'all',statsTab:'global'};
 var adminMode=false;
@@ -1830,20 +1831,18 @@ function renderNav(){
   /* ── Bottom nav mobile ── */
   var bnav=document.getElementById('bnav');
   if(bnav){
-    /* Sur mobile on limite à 5 items max pour éviter l'entassement */
-    var mItems=items.slice(0,5);
-    /* On s'assure que profil est toujours présent en 5e position */
-    var profil=items[items.length-1];
-    if(mItems.length===5&&mItems[4].p!==profil.p) mItems[4]=profil;
+    /* Tous les items, labels courts pour tenir sur mobile */
+    var lbls={accueil:'Accueil',matchs:'Matchs',classement:'Classmt',tableau:'Tableau',groupes:'Groupes',profil:'Profil',stats:'Stats'};
     var bh='';
-    for(var j=0;j<mItems.length;j++){
-      var bi=mItems[j];
+    for(var j=0;j<items.length;j++){
+      var bi=items[j];
       var bnb=(bi.p==='matchs'&&S.user&&S.user!==ADMIN)?pendingCount():0;
       var bnbH=bnb>0?'<span class="bnav-badge">'+bnb+'</span>':'';
+      var shortLb=lbls[bi.p]||bi.lb;
       bh+='<button class="bnav-item'+(S.page===bi.p?' on':'')+'" onclick="go(\''+bi.p+'\')" aria-label="'+bi.lb+'">'
         +bnbH
         +'<span class="bni">'+bi.ti+'</span>'
-        +'<span>'+bi.lb+'</span>'
+        +'<span>'+shortLb+'</span>'
         +'</button>';
     }
     bnav.innerHTML=bh;
@@ -2103,7 +2102,8 @@ function getPoulesSummaryTooltip(teamName) {
   }
 
   var css = '<style>'
-    +'.bktbl{display:flex;gap:0;overflow-x:auto;padding:0 0 16px;align-items:center;}'
+    +'.bktbl-wrap{max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;}'
+    +'.bktbl{display:flex;gap:0;padding:0 0 16px;align-items:center;width:max-content;}'
     +'.bkside{display:flex;align-items:stretch;}'
     +'.bkcol{display:flex;flex-direction:column;justify-content:space-around;}'
     +'.bkpair{display:flex;flex-direction:column;justify-content:space-around;flex:1;}'
@@ -2199,10 +2199,12 @@ function getPoulesSummaryTooltip(teamName) {
   return css
     +'<div class="pt">🏟️ TABLEAU</div>'
     +'<p class="psub">Phases finales · Cliquez sur un match pour voir les pronos</p>'
+    +'<div class="bktbl-wrap">'
     +'<div class="bktbl">'
     +'<div class="bkside">'+l16+'<div class="bkgap"></div>'+l8+'<div class="bkgap"></div>'+lQ+'<div class="bkgap"></div>'+lS+'<div class="bkgap"></div></div>'
     +center
     +'<div class="bkside"><div class="bkgap"></div>'+rS+'<div class="bkgap"></div>'+rQ+'<div class="bkgap"></div>'+r8+'<div class="bkgap"></div>'+r16+'</div>'
+    +'</div>'
     +'</div>';
 }
 </script>
