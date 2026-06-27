@@ -159,7 +159,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .sync-dot.ok{background:var(--grn)}
 .sync-dot.wait{background:var(--gold)}
 .sync-dot.none{background:var(--muted)}
-.ham{display:none;position:fixed;top:calc(var(--ban) + 8px);left:50vw;transform:translateX(-50%);z-index:9999;background:var(--card);border:1px solid var(--bdr);border-radius:8px;padding:8px 14px;cursor:pointer;color:var(--txt);font-size:.82rem;font-weight:600;gap:6px;align-items:center;white-space:nowrap}
+.ham{display:none;position:absolute;top:calc(var(--ban) + 8px);left:50vw;transform:translateX(-50%);z-index:9999;background:var(--card);border:1px solid var(--bdr);border-radius:8px;padding:8px 14px;cursor:pointer;color:var(--txt);font-size:.82rem;font-weight:600;gap:6px;align-items:center;white-space:nowrap}
 .ov{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:99}
 @media(max-width:768px){
   .ham{display:flex;align-items:center;justify-content:center}
@@ -1967,16 +1967,40 @@ function pgTableau() {
   function fmt(dt){if(!dt)return '';return new Date(dt+'T12:00:00').toLocaleDateString('fr-FR',{day:'numeric',month:'short'});}
   function tn(n){if(!n||n==='?')return '<em style="color:var(--muted)">TBD</em>';var f=FL[n]?'<img src="'+FL[n].match(/src="([^"]+)"/)?.[1]+'" style="height:12px;margin-right:3px;vertical-align:middle">':'';return f+'<span>'+n+'</span>';}
 
+function getPoulesSummaryTooltip(teamName) {
+    if (!teamName || teamName === '?' || teamName.startsWith('W') || teamName.length <= 2) return '';
+    var summary = [];
+    for (var i = 0; i < M.length; i++) {
+      var match = M[i];
+      if (match.ph === 'POULES' && (match.h === teamName || match.a === teamName)) {
+        var r = DB.results[match.id];
+        if (r) {
+          var opp = (match.h === teamName) ? match.a : match.h;
+          var myScore = (match.h === teamName) ? r.h : r.a;
+          var oppScore = (match.h === teamName) ? r.a : r.h;
+          summary.push(myScore + ' - ' + oppScore + ' vs ' + opp);
+        }
+      }
+    }
+    return summary.length > 0 ? 'Résultats poule :\n' + summary.join('\n') : 'Aucun résultat de poule saisi';
+  }
+
   function card(id){
     var m=gm(id); if(!m) return '<div class="bkc"></div>';
     var r=DB.results[id];
     var won=r?'style="border-color:var(--grn)"':''; 
     var s1=r?'<span class="bks '+(r.h>r.a?'bkw':'')+'">'+ r.h+'</span>':''; 
     var s2=r?'<span class="bks '+(r.a>r.h?'bkw':'')+'">'+ r.a+'</span>':''; 
+    
+    // Activation de l'infobulle uniquement pour les 16es de finale (IDs 73 à 88)
+    var is16e = (id >= 73 && id <= 88);
+    var tt1 = is16e ? ' title="'+getPoulesSummaryTooltip(m.h)+'"' : '';
+    var tt2 = is16e ? ' title="'+getPoulesSummaryTooltip(m.a)+'"' : '';
+
     return '<div class="bkc" '+won+' onclick="setTab(\''+ m.ph+'\');go(\'matchs\')" title="Match #'+ id+'">'
       +'<div class="bkn">#'+id+' · '+fmt(m.dt)+(m.ti?' · '+m.ti:'')+'</div>'
-      +'<div class="bkr">'+tn(m.h)+s1+'</div>'
-      +'<div class="bkr">'+tn(m.a)+s2+'</div>'
+      +'<div class="bkr"'+tt1+'>'+tn(m.h)+s1+'</div>'
+      +'<div class="bkr"'+tt2+'>'+tn(m.a)+s2+'</div>'
       +(m.v?'<div style="font-size:.6rem;color:var(--muted);margin-top:3px">📍 '+m.v+'</div>':'')
       +'</div>';
   }
