@@ -27,7 +27,7 @@
 })();
 </script>
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Prono CDM 26 v2.5.5</title>
+<title>Prono CDM 26 v2.5.6</title>
 <meta name="theme-color" content="#f5a623">
 <meta name="mobile-web-app-capable" content="yes">
 <style>
@@ -159,36 +159,75 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .sync-dot.ok{background:var(--grn)}
 .sync-dot.wait{background:var(--gold)}
 .sync-dot.none{background:var(--muted)}
-.ham {
-  display: none;
-  position: fixed;
-  top: calc(var(--ban) + 8px);
-  /* Au lieu de left: 50vw et transform: translateX(-50%) */
-  left: 0;
-  right: 0;
-  margin: 0 auto;
-  width: fit-content; /* S'adapte au contenu du bouton */
-  
-  z-index: 9999;
-  background: var(--card);
-  border: 1px solid var(--bdr);
-  border-radius: 8px;
-  padding: 8px 14px;
-  cursor: pointer;
-  color: var(--txt);
-  font-size: .82rem;
-  font-weight: 600;
-  gap: 6px;
-  align-items: center;
-  white-space: nowrap;
-}
+/* ── Bouton hamburger : masqué définitivement ── */
+.ham{display:none !important}
 .ov{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:99}
+
+/* ── Bottom Navigation Bar ── */
+.bnav{
+  display:none;
+  position:fixed;
+  bottom:0;left:0;right:0;
+  height:58px;
+  background:var(--nav);
+  border-top:1px solid var(--bdr);
+  z-index:200;
+  align-items:stretch;
+}
+.bnav-item{
+  flex:1;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:3px;
+  cursor:pointer;
+  color:var(--muted);
+  font-size:.58rem;
+  font-weight:600;
+  padding:6px 2px;
+  transition:color .15s;
+  position:relative;
+  border:none;
+  background:transparent;
+  -webkit-tap-highlight-color:transparent;
+}
+.bnav-item .bni{font-size:1.25rem;line-height:1}
+.bnav-item.on{color:var(--gold)}
+.bnav-item.on::after{
+  content:'';
+  position:absolute;
+  top:0;left:20%;right:20%;
+  height:2px;
+  background:var(--gold);
+  border-radius:0 0 2px 2px;
+}
+.bnav-badge{
+  position:absolute;
+  top:5px;
+  right:calc(50% - 16px);
+  background:var(--red);
+  color:#fff;
+  font-size:.52rem;
+  font-weight:800;
+  min-width:14px;
+  height:14px;
+  border-radius:7px;
+  display:flex;align-items:center;justify-content:center;
+  padding:0 3px;
+}
+
 @media(max-width:768px){
-  .ham{display:flex;align-items:center;justify-content:center}
-  .sb{transform:translateX(-100%);transition:transform .3s}
-  .sb.open{transform:translateX(0)}
-  .ov.open{display:block}
-  .main{margin-left:0;padding:16px;padding-top:56px}
+  /* Sidebar : masquée sur mobile (plus de drawer) */
+  .sb{display:none}
+  /* Bottom nav visible */
+  .bnav{display:flex}
+  /* Contenu : plus de marge gauche, padding bas pour la bottom nav */
+  .main{margin-left:0;padding:16px;padding-bottom:72px}
+  /* Toast au-dessus de la bottom nav */
+  .toast{bottom:70px;right:50%;transform:translateX(50%)}
+  /* Save-bar au-dessus de la bottom nav */
+  .save-bar{bottom:66px}
   .pt{font-size:1.8rem}
   .mg,.gg{grid-template-columns:1fr}
   .phd{flex-direction:column}
@@ -196,6 +235,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   .sg{grid-template-columns:repeat(2,1fr)}
   .lf{flex-direction:column}
   .htitle{font-size:2rem}
+  /* Inputs score plus grands au toucher */
+  .pi{width:52px;height:52px;font-size:1.2rem}
 }
 
 .save-bar{position:sticky;bottom:16px;z-index:50;display:flex;justify-content:center;margin:20px 0 0;pointer-events:none}
@@ -218,10 +259,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 </head>
 <body>
 <div id="adm-ban" class="admin-banner">&#9889; MODE ADMIN ACTIF &mdash; Saisie des scores activ&eacute;e <span style="opacity:.6;font-size:.7rem;margin-left:8px">(visible uniquement pour toi)</span></div>
-<button class="ham" id="ham" onclick="toggleMenu()">&#9776; Menu</button>
+<nav class="bnav" id="bnav" aria-label="Navigation principale"></nav>
 <div class="ov" id="ov"></div>
 <nav class="sb" id="sb">
-  <div class="sb-logo" onclick="logoClick()" style="cursor:default">&#127942; <span>PRONO CDM 26</span><span style="font-size:.6rem;opacity:.45;margin-left:6px;font-weight:400">v2.5.5</span></div>
+  <div class="sb-logo" onclick="logoClick()" style="cursor:default">&#127942; <span>PRONO CDM 26</span><span style="font-size:.6rem;opacity:.45;margin-left:6px;font-weight:400">v2.5.6</span></div>
   <div id="grp-chip" style="padding:4px 20px 8px;font-size:.72rem;color:var(--gold);opacity:.8"></div>
   <div class="sb-nav" id="snav"></div>
 </nav>
@@ -355,8 +396,8 @@ var SUPABASE_URL = atob('aHR0cHM6Ly9ya2Jycm5kcGFqY3p3cmhwam9hdw==')+atob('LnN1cG
 var SUPABASE_KEY = atob('c2JfcHVibGlzaGFibGVfdg==')+atob('Y1JwTWFLaTlPY3F2MGV2aQ==')+atob('Yko1NHdfZVg2ZjNUczg=');
 var ADMIN = atob('YWRtaW5wcm9ubw==');
 // Emergency code stored in Supabase config
-var VERSION = '2.5.5';
-var BUILD = '27/06/2026 10:00';
+var VERSION = '2.5.6';
+var BUILD = '27/06/2026 11:00';
 var GROUP_ID = (typeof URLSearchParams!=='undefined')?(new URLSearchParams(window.location.search).get('g')||null):null;
 var S={user:null,page:'accueil',tab:'POULES',grp:'ALL',cpw:false,adm:false,qf:'all',statsTab:'global'};
 var adminMode=false;
@@ -1765,16 +1806,18 @@ function toast(msg,type){
 
 function renderNav(){
   var items = S.user ? [
-    {p:'accueil',ic:'&#8962;',lb:'Accueil'},
-    {p:'matchs',ic:'&#128197;',lb:'Matchs'},
-    {p:'classement',ic:'&#8801;',lb:'Classement'},
-    {p:'tableau',ic:'&#127959;',lb:'Tableau'},
-    {p:'groupes',ic:'&#128101;',lb:'Groupes'},
-    {p:'profil',ic:'&#128100;',lb:(S.user!==ADMIN)?psd(S.user):'Mon profil'}
+    {p:'accueil',ic:'&#8962;',lb:'Accueil',ti:'🏠'},
+    {p:'matchs',ic:'&#128197;',lb:'Matchs',ti:'📅'},
+    {p:'classement',ic:'&#8801;',lb:'Classement',ti:'🏆'},
+    {p:'tableau',ic:'&#127959;',lb:'Tableau',ti:'🏟'},
+    {p:'groupes',ic:'&#128101;',lb:'Groupes',ti:'👥'},
+    {p:'profil',ic:'&#128100;',lb:(S.user!==ADMIN)?psd(S.user):'Profil',ti:'👤'}
   ] : [
-    {p:'accueil',ic:'&#8962;',lb:'Connexion'}
+    {p:'accueil',ic:'&#8962;',lb:'Connexion',ti:'🏠'}
   ];
-  if(isAdmin()) items.splice(4,0,{p:'stats',ic:'&#128202;',lb:'Statistiques'});
+  if(isAdmin()) items.splice(4,0,{p:'stats',ic:'&#128202;',lb:'Stats',ti:'📊'});
+
+  /* ── Sidebar desktop ── */
   var h='';
   for(var i=0;i<items.length;i++){
     var it=items[i];
@@ -1782,8 +1825,30 @@ function renderNav(){
     var nb2H=nb2>0?'<span class="nav-badge">'+nb2+'</span>':'';
     h+='<div class="ni'+(S.page===it.p?' on':'')+'" onclick="go(\''+it.p+'\')">'+'<span>'+it.ic+'</span> <span>'+it.lb+'</span>'+nb2H+'</div>';
   }
-
   document.getElementById('snav').innerHTML=h;
+
+  /* ── Bottom nav mobile ── */
+  var bnav=document.getElementById('bnav');
+  if(bnav){
+    /* Sur mobile on limite à 5 items max pour éviter l'entassement */
+    var mItems=items.slice(0,5);
+    /* On s'assure que profil est toujours présent en 5e position */
+    var profil=items[items.length-1];
+    if(mItems.length===5&&mItems[4].p!==profil.p) mItems[4]=profil;
+    var bh='';
+    for(var j=0;j<mItems.length;j++){
+      var bi=mItems[j];
+      var bnb=(bi.p==='matchs'&&S.user&&S.user!==ADMIN)?pendingCount():0;
+      var bnbH=bnb>0?'<span class="bnav-badge">'+bnb+'</span>':'';
+      bh+='<button class="bnav-item'+(S.page===bi.p?' on':'')+'" onclick="go(\''+bi.p+'\')" aria-label="'+bi.lb+'">'
+        +bnbH
+        +'<span class="bni">'+bi.ti+'</span>'
+        +'<span>'+bi.lb+'</span>'
+        +'</button>';
+    }
+    bnav.innerHTML=bh;
+  }
+
   var chip=document.getElementById('grp-chip');
   if(chip) chip.innerHTML=currentGroupName()?'&#128101; '+currentGroupName():'';
 }
