@@ -32,7 +32,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-html{overflow-x:hidden}
+body{overflow-x:hidden}
 :root{--gold:#f5a623;--gold2:#ffbb44;--bg:#111;--card:#1c1c1c;--nav:#0d0d0d;--txt:#fff;--muted:#888;--bdr:#2a2a2a;--grn:#22c55e;--red:#ef4444;--sw:260px;--ban:0px}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--txt);display:flex;min-height:100vh;padding-top:var(--ban)}
 .admin-banner{position:fixed;top:0;left:0;right:0;height:32px;background:var(--gold);color:#000;font-size:.78rem;font-weight:800;display:none;align-items:center;justify-content:center;z-index:400;gap:8px}
@@ -398,8 +398,8 @@ var SUPABASE_URL = atob('aHR0cHM6Ly9ya2Jycm5kcGFqY3p3cmhwam9hdw==')+atob('LnN1cG
 var SUPABASE_KEY = atob('c2JfcHVibGlzaGFibGVfdg==')+atob('Y1JwTWFLaTlPY3F2MGV2aQ==')+atob('Yko1NHdfZVg2ZjNUczg=');
 var ADMIN = atob('YWRtaW5wcm9ubw==');
 // Emergency code stored in Supabase config
-var VERSION = '2.5.12';
-var BUILD = '27/06/2026 17:00';
+var VERSION = '2.5.13';
+var BUILD = '28/06/2026 12:00';
 var GROUP_ID = (typeof URLSearchParams!=='undefined')?(new URLSearchParams(window.location.search).get('g')||null):null;
 var S={user:null,page:'accueil',tab:'POULES',grp:'ALL',cpw:false,adm:false,qf:'all',statsTab:'global'};
 var adminMode=false;
@@ -517,6 +517,98 @@ function uPronos(u){
 function getRes(id){return DB.results[id]||null;}
 async function setRes(id,hv,av){if(!sb)return;await sb.from('results').upsert({match_id:+id,home_score:+hv,away_score:+av,updated_at:new Date().toISOString()});DB.results[id]={h:+hv,a:+av};}
 async function delRes(id){if(!sb)return;await sb.from('results').delete().eq('match_id',+id);delete DB.results[id];}
+
+// Table de propagation : pour chaque match, indique dans quel match et quelle place (h/a) va le vainqueur
+// Format : matchId → { nextMatchId, side:'h'|'a' }
+var BRACKET_NEXT = {
+  // 16es → 8es
+  73:{next:90,side:'h'}, 74:{next:89,side:'h'}, 75:{next:90,side:'a'}, 76:{next:91,side:'h'},
+  77:{next:89,side:'a'}, 78:{next:91,side:'a'}, 79:{next:92,side:'h'}, 80:{next:92,side:'a'},
+  81:{next:94,side:'h'}, 82:{next:94,side:'a'}, 83:{next:93,side:'h'}, 84:{next:93,side:'a'},
+  85:{next:96,side:'h'}, 86:{next:95,side:'h'}, 87:{next:96,side:'a'}, 88:{next:95,side:'a'},
+  // 8es → Quarts
+  89:{next:97,side:'h'}, 90:{next:97,side:'a'}, 91:{next:98,side:'h'}, 92:{next:98,side:'a'},
+  93:{next:99,side:'h'}, 94:{next:99,side:'a'}, 95:{next:100,side:'h'}, 96:{next:100,side:'a'},
+  // Quarts → Demis
+  97:{next:101,side:'h'}, 98:{next:101,side:'a'}, 99:{next:102,side:'h'}, 100:{next:102,side:'a'},
+  // Demis → Finale + 3e place
+  101:{next:104,side:'h'}, 102:{next:104,side:'a'},
+  // Perdants des demis → 3e place (géré séparément via loserOf)
+};
+// Perdants des demis → match 103 (3e place)
+var BRACKET_LOSER = {
+  101:{next:103,side:'h'}, 102:{next:103,side:'a'}
+};
+
+// Détermine le vainqueur d'un match KO à partir de son résultat
+// En KO il ne peut pas y avoir de nul → si score nul on ne propage pas (match pas terminé)
+function getWinner(matchId) {
+  var r = DB.results[matchId];
+  if (!r) return null;
+  if (r.h === r.a) return null; // nul = pas encore de vainqueur (prolongations en cours)
+  var m = null;
+  for (var i=0;i<M.length;i++) if (M[i].id===matchId){m=M[i];break;}
+  if (!m) return null;
+  return r.h > r.a ? m.h : m.a;
+}
+function getLoser(matchId) {
+  var r = DB.results[matchId];
+  if (!r) return null;
+  if (r.h === r.a) return null;
+  var m = null;
+  for (var i=0;i<M.length;i++) if (M[i].id===matchId){m=M[i];break;}
+  if (!m) return null;
+  return r.h > r.a ? m.a : m.h;
+}
+
+// Propage le vainqueur d'un match vers le match suivant dans Supabase + M local
+async function propagateMatch(matchId) {
+  if (!sb) return;
+  var next = BRACKET_NEXT[matchId];
+  if (!next) return;
+  var winner = getWinner(matchId);
+  if (!winner) return; // pas de résultat ou nul → on ne propage pas
+  var update = {};
+  update[next.side === 'h' ? 'home' : 'away'] = winner;
+  // Mise à jour Supabase
+  await sb.from('matches').update(update).eq('id', next.next);
+  // Mise à jour locale
+  for (var i=0;i<M.length;i++) {
+    if (M[i].id === next.next) {
+      if (next.side === 'h') M[i].h = winner; else M[i].a = winner;
+      break;
+    }
+  }
+  // Perdant des demis → 3e place
+  var loserNext = BRACKET_LOSER[matchId];
+  if (loserNext) {
+    var loser = getLoser(matchId);
+    if (loser) {
+      var updL = {};
+      updL[loserNext.side === 'h' ? 'home' : 'away'] = loser;
+      await sb.from('matches').update(updL).eq('id', loserNext.next);
+      for (var j=0;j<M.length;j++) {
+        if (M[j].id === loserNext.next) {
+          if (loserNext.side === 'h') M[j].h = loser; else M[j].a = loser;
+          break;
+        }
+      }
+    }
+  }
+}
+
+// Propage TOUS les matchs KO qui ont un résultat (bouton admin)
+async function propagateAllWinners() {
+  if (!sb || !isAdmin()) return;
+  var koIds = Object.keys(BRACKET_NEXT).map(Number);
+  var count = 0;
+  for (var i=0;i<koIds.length;i++) {
+    var mid = koIds[i];
+    var winner = getWinner(mid);
+    if (winner) { await propagateMatch(mid); count++; }
+  }
+  return count;
+}
 async function saveConfig(key,val){if(!sb)return;await sb.from('config').upsert({key:key,value:val});DB.config[key]=val;}
 
 /* ═══════════════════════════════ SCORING ═══════════════════════════════════ */
@@ -633,7 +725,12 @@ function buildAdminPanel() {
       +'<p style="font-size:.75rem;color:var(--grn);margin-bottom:8px">&#10003; Edge Function Supabase active &mdash; scores récupérés automatiquement 2h après chaque match.</p>'
       +pendingH
       +(DB.config.apikey?'':'<div style="background:rgba(239,68,68,.1);border:1px solid var(--red);border-radius:6px;padding:6px 12px;font-size:.75rem;color:#f87171;margin-bottom:6px">&#9888; Clé API football-data.org non configurée dans les secrets Supabase</div>')+'<button class="btn-g" onclick="autoFetch(false)" style="background:#3a3a6e;color:#fff">&#8635; Forcer une sync maintenant</button>'
-      +'<div id="synce" style="font-size:.75rem;color:var(--muted);margin-top:6px"></div>';
+      +'<div id="synce" style="font-size:.75rem;color:var(--muted);margin-top:6px"></div>'
+      +'<hr class="hr2">'
+      +'<h4 style="margin-bottom:6px">&#128279; Propagation des qualifiés</h4>'
+      +'<p style="font-size:.75rem;color:var(--muted);margin-bottom:8px">Reporte automatiquement le vainqueur de chaque match KO dans le match suivant (8es, quarts, demis, finale). Se fait aussi automatiquement à chaque saisie de score.</p>'
+      +'<button class="btn-g" onclick="hPropagateAll()" style="background:#2d5a1b;color:#fff">&#9654; Propager tous les qualifiés</button>'
+      +'<div id="prope" style="font-size:.75rem;color:var(--muted);margin-top:6px"></div>';
   }
 
   else if (S.adminTab === 'joueurs') {
@@ -1075,11 +1172,23 @@ async function hSetRes(id){
   if(!isAdmin()){toast('Acc\u00e8s refus\u00e9','err');return;}
   var hv=gv('rh'+id),av=gv('ra'+id);
   if(hv===''||av===''){toast('Score incomplet !','err');return;}
-  await setRes(id,hv,av);toast('Score enregistr\u00e9 \u2713');render();
+  await setRes(id,hv,av);
+  if(BRACKET_NEXT[+id]){await propagateMatch(+id);}
+  toast('Score enregistr\u00e9 \u2713');render();
 }
 async function hDelRes(id){
   if(!isAdmin()){toast('Acc\u00e8s refus\u00e9','err');return;}
   await delRes(id);toast('Score supprim\u00e9');render();
+}
+async function hPropagateAll(){
+  if(!isAdmin()){toast('Acc\u00e8s refus\u00e9','err');return;}
+  var e=document.getElementById('prope');
+  if(e) e.textContent='Propagation en cours...';
+  var count=await propagateAllWinners();
+  render();
+  var msg=count>0?count+' match(s) propag\u00e9(s) \u2713':'Aucun r\u00e9sultat KO \u00e0 propager';
+  toast(msg);
+  if(e) e.textContent=msg;
 }
 async function hCpw(){
   var o=gv('opw'),n=gv('npw'),r=await chgPw(o,n);
@@ -1636,7 +1745,9 @@ async function hSetRes(id){
   if(!isAdmin()){toast('Acc\u00e8s refus\u00e9','err');return;}
   var hv=gv('rh'+id),av=gv('ra'+id);
   if(hv===''||av===''){toast('Score incomplet !','err');return;}
-  await setRes(id,hv,av);toast('Score enregistr\u00e9 \u2713');render();
+  await setRes(id,hv,av);
+  if(BRACKET_NEXT[+id]){await propagateMatch(+id);}
+  toast('Score enregistr\u00e9 \u2713');render();
 }
 async function hDelRes(id){
   if(!isAdmin()){toast('Acc\u00e8s refus\u00e9','err');return;}
