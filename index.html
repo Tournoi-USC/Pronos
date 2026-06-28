@@ -27,7 +27,7 @@
 })();
 </script>
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Prono CDM 26 v2.5.18</title>
+<title>Prono CDM 26 v2.5.16</title>
 <meta name="theme-color" content="#f5a623">
 <meta name="mobile-web-app-capable" content="yes">
 <style>
@@ -264,7 +264,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 <div id="save-bar-portal"></div>
 <div class="ov" id="ov"></div>
 <nav class="sb" id="sb">
-  <div class="sb-logo" onclick="logoClick()" style="cursor:default">&#127942; <span>PRONO CDM 26</span><span style="font-size:.6rem;opacity:.45;margin-left:6px;font-weight:400">v2.5.18</span></div>
+  <div class="sb-logo" onclick="logoClick()" style="cursor:default">&#127942; <span>PRONO CDM 26</span><span style="font-size:.6rem;opacity:.45;margin-left:6px;font-weight:400">v2.5.16</span></div>
   <div id="grp-chip" style="padding:4px 20px 8px;font-size:.72rem;color:var(--gold);opacity:.8"></div>
   <div class="sb-nav" id="snav"></div>
 </nav>
@@ -398,8 +398,8 @@ var SUPABASE_URL = atob('aHR0cHM6Ly9ya2Jycm5kcGFqY3p3cmhwam9hdw==')+atob('LnN1cG
 var SUPABASE_KEY = atob('c2JfcHVibGlzaGFibGVfdg==')+atob('Y1JwTWFLaTlPY3F2MGV2aQ==')+atob('Yko1NHdfZVg2ZjNUczg=');
 var ADMIN = atob('YWRtaW5wcm9ubw==');
 // Emergency code stored in Supabase config
-var VERSION = '2.5.18';
-var BUILD = '28/06/2026 19:00';
+var VERSION = '2.5.16';
+var BUILD = '28/06/2026 17:00';
 var GROUP_ID = (typeof URLSearchParams!=='undefined')?(new URLSearchParams(window.location.search).get('g')||null):null;
 var S={user:null,page:'accueil',tab:'POULES',grp:'ALL',cpw:false,adm:false,qf:'all',statsTab:'global'};
 var adminMode=false;
@@ -612,37 +612,28 @@ async function propagateAllWinners() {
 async function saveConfig(key,val){if(!sb)return;await sb.from('config').upsert({key:key,value:val});DB.config[key]=val;}
 
 /* ═══════════════════════════════ SCORING ═══════════════════════════════════ */
-function getMatchOdds(id){for(var i=0;i<M.length;i++)if(M[i].id==id)return{oh:M[i].oh,oa:M[i].oa,od:M[i].od,ph:M[i].ph,win:M[i].win};return null;}
+function getMatchOdds(id){for(var i=0;i<M.length;i++)if(M[i].id==id)return{oh:M[i].oh,oa:M[i].oa,od:M[i].od,ph:M[i].ph};return null;}
 // Système mixte :
 // POULES (sans côtes) : bon résultat = 1pt, score exact = 3pts
 // KO (avec côtes)     : bon résultat = côte×2, bonne diff = côte×5, score exact = côte×10
-// En KO, si match nul + winner défini (TAB) : winner utilisé pour bon résultat, score exact impossible
+//                       nul (poules avec côtes) : nul correct = côte nul×2, score exact nul = côte nul×10, nul bon écart = côte nul×5
 function calcPts(pn,r,odds){
   if(!pn||!r)return 0;
   var exact=(pn.h===r.h&&pn.a===r.a);
   var isNul=(r.h===r.a);
+  var goodWinner=Math.sign(pn.h-pn.a)===Math.sign(r.h-r.a);
+  var goodDiff=goodWinner&&Math.abs(pn.h-pn.a)===Math.abs(r.h-r.a)&&!exact;
   var isPoule=!odds||odds.ph==='POULES';
-  // Vainqueur réel : depuis winner (TAB) ou depuis le score
-  var realWinner=null; // 'h', 'a', ou null (nul en poules)
-  if(odds&&odds.win)realWinner=odds.win; // TAB
-  else if(r.h>r.a)realWinner='h';
-  else if(r.h<r.a)realWinner='a';
-  // Vainqueur pronostiqué
-  var pronoWinner=pn.h>pn.a?'h':(pn.h<pn.a?'a':null);
-  var goodWinner=realWinner&&pronoWinner&&realWinner===pronoWinner;
-  var goodDiff=goodWinner&&!isNul&&Math.abs(pn.h-pn.a)===Math.abs(r.h-r.a)&&!exact;
-  // Si TAB (isNul + winner défini) → score exact impossible
-  var tabMatch=isNul&&odds&&odds.win;
   if(isPoule||(!odds.oh&&!odds.oa)){
     // Système classique poules
-    if(!tabMatch&&exact)return 3;
+    if(exact)return 3;
     if(goodWinner)return 1;
     return 0;
   }
-  // Système côtes KO
-  var ref=realWinner==='h'?odds.oh:(realWinner==='a'?odds.oa:odds.od);
+  // Système côtes KO (et poules si côtes dispo dans le futur)
+  var ref=isNul?odds.od:(r.h>r.a?odds.oh:odds.oa);
   if(!ref)return 0;
-  if(!tabMatch&&exact)return Math.round(ref*10*100)/100;
+  if(exact)return Math.round(ref*10*100)/100;
   if(goodDiff)return Math.round(ref*5*100)/100;
   if(goodWinner)return Math.round(ref*2*100)/100;
   return 0;
@@ -669,15 +660,11 @@ function ptBadge(id,user){
   var pn=uPronos(user)[id],r=getRes(id);
   if(!pn||!r)return null;
   var odds=getMatchOdds(+id);
-  var isNul=(r.h===r.a);
-  var tabMatch=isNul&&odds&&odds.win;
-  var realWinner=odds&&odds.win?odds.win:(r.h>r.a?'h':(r.h<r.a?'a':null));
-  var pronoWinner=pn.h>pn.a?'h':(pn.h<pn.a?'a':null);
   var exact=(pn.h===r.h&&pn.a===r.a);
-  var goodWinner=realWinner&&pronoWinner&&realWinner===pronoWinner;
-  var goodDiff=goodWinner&&!isNul&&Math.abs(pn.h-pn.a)===Math.abs(r.h-r.a)&&!exact;
+  var goodWinner=Math.sign(pn.h-pn.a)===Math.sign(r.h-r.a);
+  var goodDiff=goodWinner&&Math.abs(pn.h-pn.a)===Math.abs(r.h-r.a)&&!exact;
   var earned=calcPts(pn,r,odds);
-  if(!tabMatch&&exact)return{type:'ex',pts:earned};
+  if(exact)return{type:'ex',pts:earned};
   if(goodDiff)return{type:'okd',pts:earned};
   if(goodWinner)return{type:'ok',pts:earned};
   return{type:'no',pts:0};
@@ -1206,22 +1193,10 @@ function cardMatch(m) {
   } else if (!S.user||S.user===ADMIN) {
     pronoBlock='<div style="font-size:.73rem;color:var(--muted);text-align:right;margin-top:8px">&#128274; Connexion requise</div>';
   }
+  var adminBlock='';
   if (adminMode&&isAdmin()) {
     var delBtn=res?('<button class="rsb" onclick="hDelRes('+m.id+')" style="color:var(--red)">&#10005;</button>'):'';
-    adminBlock='<div class="rrow"><span style="font-size:.7rem;color:var(--muted)">&#128737; Score réel:</span><input class="ri" type="number" min="0" max="20" id="rh'+m.id+'" value="'+(res?res.h:'')+'" placeholder="0"><span style="color:var(--muted)">-</span><input class="ri" type="number" min="0" max="20" id="ra'+m.id+'" value="'+(res?res.a:'')+'" placeholder="0"><button class="rsb" onclick="hSetRes('+m.id+')">&#10003;</button>'+delBtn+'</div>';
-    // Champ vainqueur TAB — affiché en KO si score nul ou déjà défini
-    if(m.ph!=='POULES'){
-      var curWin=m.win||'';
-      var showWin=res&&(res.h===res.a||curWin);
-      if(showWin){
-        adminBlock+='<div class="rrow" style="margin-top:4px"><span style="font-size:.7rem;color:var(--muted)">&#127952; Vainqueur TAB:</span>'
-          +'<select class="ri" id="rw'+m.id+'" style="width:auto;padding:2px 6px" onchange="hSetWinner('+m.id+',this.value)">'
-          +'<option value=""'+(curWin===''?' selected':'')+'>—</option>'
-          +'<option value="h"'+(curWin==='h'?' selected':'')+'>'+m.h+'</option>'
-          +'<option value="a"'+(curWin==='a'?' selected':'')+'>'+m.a+'</option>'
-          +'</select></div>';
-      }
-    }
+    adminBlock='<div class="rrow"><span style="font-size:.7rem;color:var(--muted)">&#128737; Score r\u00e9el:</span><input class="ri" type="number" min="0" max="20" id="rh'+m.id+'" value="'+(res?res.h:'')+'" placeholder="0"><span style="color:var(--muted)">-</span><input class="ri" type="number" min="0" max="20" id="ra'+m.id+'" value="'+(res?res.a:'')+'" placeholder="0"><button class="rsb" onclick="hSetRes('+m.id+')">&#10003;</button>'+delBtn+'</div>';
   }
   return '<div class="mc'+(pn&&S.user!==ADMIN?' hp':'')+(res?' fin':'')+'">'
    +'<div class="mh"><span class="mtag">Match #'+m.id+(m.gr?' &middot; Grp '+m.gr:'')+'</span><span class="ms'+(res?' fin':'')+'">'+(res?'TERMIN&Eacute;':'&Agrave; VENIR')+'</span></div>'
@@ -1288,8 +1263,8 @@ function pgGroupes() {
 /* ═══════════════════════════════════════════════
    HANDLERS PRINCIPAUX
 ═══════════════════════════════════════════════ */
-function setTab(t){S.tab=t;S.grp='ALL';S.qf='all';S.search='';S.searchDate='';localStorage.setItem('cdm_tab',t);localStorage.removeItem('cdm_grp2');render();}
-function setGrp(g){S.grp=g;localStorage.setItem('cdm_grp2',g);render();}
+function setTab(t){S.tab=t;S.grp='ALL';S.qf='all';S.search='';S.searchDate='';render();}
+function setGrp(g){S.grp=g;render();}
 function setQF(f){S.qf=f;render();}
 function tCpw(){S.cpw=!S.cpw;render();}
 function tAdm(){S.adm=!S.adm;render();}
@@ -1326,15 +1301,7 @@ async function hDelRes(id){
   if(!isAdmin()){toast('Acc\u00e8s refus\u00e9','err');return;}
   await delRes(id);toast('Score supprim\u00e9');render();
 }
-async function hSetWinner(id,val){
-  if(!isAdmin()||!sb)return;
-  var w=val||null;
-  await sb.from('matches').update({winner:w}).eq('id',+id);
-  // Mise à jour locale
-  for(var i=0;i<M.length;i++)if(M[i].id===+id){M[i].win=w;break;}
-  toast(w?'Vainqueur TAB enregistré ✓':'Vainqueur TAB effacé');
-  render();
-}
+async function hPropagateAll(){
   if(!isAdmin()){toast('Acc\u00e8s refus\u00e9','err');return;}
   var e=document.getElementById('prope');
   if(e) e.textContent='Propagation en cours...';
@@ -1803,7 +1770,7 @@ async function loadAll() {
     for(var i=0;i<config.length;i++) DB.config[config[i].key]=config[i].value;
     var rM = await sb.from('matches').select('*').order('id');
     if(rM.data&&rM.data.length>0){
-      M=rM.data.map(function(r){ return {id:r.id,ph:r.phase,gr:r.grp,dt:r.dt,ti:r.ti,h:r.home,a:r.away,v:r.venue,oh:r.odds_h?+r.odds_h:null,oa:r.odds_a?+r.odds_a:null,od:r.odds_d?+r.odds_d:null,win:r.winner||null}; });
+      M=rM.data.map(function(r){ return {id:r.id,ph:r.phase,gr:r.grp,dt:r.dt,ti:r.ti,h:r.home,a:r.away,v:r.venue,oh:r.odds_h?+r.odds_h:null,oa:r.odds_a?+r.odds_a:null,od:r.odds_d?+r.odds_d:null}; });
     }
   } catch(e){ toast('Erreur chargement: '+e.message,'err'); }
 }
@@ -2061,23 +2028,11 @@ async function init(){
   }
   try{setupRealtime();}catch(e){console.warn('Realtime:',e);}
   startAutoSync();
-  // Restaurer la dernière page/onglet visités
-  var savedPg=localStorage.getItem('cdm_pg');
-  var savedTab=localStorage.getItem('cdm_tab');
-  var savedGrp2=localStorage.getItem('cdm_grp2');
-  var validPages=['accueil','matchs','classement','tableau','groupes','profil','stats'];
-  var validTabs=['POULES','BARR\u0041GES','HUITI\u00C8MES','QUARTS','DEMIS','PETITE FINALE','FINALE'];
-  if(savedPg&&validPages.indexOf(savedPg)!==-1){
-    if(savedPg==='stats'&&!isAdmin()) savedPg='accueil';
-    S.page=savedPg;
-  }
-  if(savedTab&&validTabs.indexOf(savedTab)!==-1) S.tab=savedTab;
-  if(savedGrp2) S.grp=savedGrp2;
   render();
 }
 init();
 
-function go(p){S.page=p;localStorage.setItem('cdm_pg',p);render();document.getElementById('sb').classList.remove('open');document.getElementById('ov').classList.remove('open');window.scrollTo(0,0);}
+function go(p){S.page=p;render();document.getElementById('sb').classList.remove('open');document.getElementById('ov').classList.remove('open');window.scrollTo(0,0);}
 
 function toast(msg,type){
   var t=document.createElement('div');
