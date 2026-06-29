@@ -27,7 +27,7 @@
 })();
 </script>
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Prono CDM 26 v2.5.18</title>
+<title>Prono CDM 26 v2.5.19</title>
 <meta name="theme-color" content="#f5a623">
 <meta name="mobile-web-app-capable" content="yes">
 <style>
@@ -264,7 +264,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 <div id="save-bar-portal"></div>
 <div class="ov" id="ov"></div>
 <nav class="sb" id="sb">
-  <div class="sb-logo" onclick="logoClick()" style="cursor:default">&#127942; <span>PRONO CDM 26</span><span style="font-size:.6rem;opacity:.45;margin-left:6px;font-weight:400">v2.5.18</span></div>
+  <div class="sb-logo" onclick="logoClick()" style="cursor:default">&#127942; <span>PRONO CDM 26</span><span style="font-size:.6rem;opacity:.45;margin-left:6px;font-weight:400">v2.5.19</span></div>
   <div id="grp-chip" style="padding:4px 20px 8px;font-size:.72rem;color:var(--gold);opacity:.8"></div>
   <div class="sb-nav" id="snav"></div>
 </nav>
@@ -398,8 +398,8 @@ var SUPABASE_URL = atob('aHR0cHM6Ly9ya2Jycm5kcGFqY3p3cmhwam9hdw==')+atob('LnN1cG
 var SUPABASE_KEY = atob('c2JfcHVibGlzaGFibGVfdg==')+atob('Y1JwTWFLaTlPY3F2MGV2aQ==')+atob('Yko1NHdfZVg2ZjNUczg=');
 var ADMIN = atob('YWRtaW5wcm9ubw==');
 // Emergency code stored in Supabase config
-var VERSION = '2.5.18';
-var BUILD = '29/06/2026 12:00';
+var VERSION = '2.5.19';
+var BUILD = '29/06/2026 14:00';
 var GROUP_ID = (typeof URLSearchParams!=='undefined')?(new URLSearchParams(window.location.search).get('g')||null):null;
 var S={user:null,page:'accueil',tab:'POULES',grp:'ALL',cpw:false,adm:false,qf:'all',statsTab:'global'};
 var adminMode=false;
@@ -1222,7 +1222,7 @@ function cardMatch(m) {
 function pgClass() {
   if (!sb) return pgSetup();
   var board=lb();
-  var h='<div class="pt">&#127942; CLASSEMENT</div><p class="psub">Poules : 1pt bon résultat &middot; 3pts score exact &middot; KO : côte×2 / côte×5 / côte×10</p><div class="card" style="padding:0;margin-top:20px">';
+  var h='<div class="pt">&#127942; CLASSEMENT <button onclick="showRules()" style="background:none;border:1px solid var(--bdr);border-radius:50%;width:22px;height:22px;cursor:pointer;font-size:.75rem;color:var(--muted);vertical-align:middle;margin-left:6px;padding:0;line-height:22px">?</button></div><p class="psub">Cliquez sur ❓ pour voir les règles de calcul des points</p><div class="card" style="padding:0;margin-top:20px">';
   if (!board.length) return h+'<div class="empty">Aucun participant pour le moment.</div></div>';
   var rows='';
   for (var i=0; i<board.length; i++) {
@@ -2038,6 +2038,8 @@ init();
 
 function go(p){S.page=p;localStorage.setItem('cdm_pg',p);render();document.getElementById('sb').classList.remove('open');document.getElementById('ov').classList.remove('open');window.scrollTo(0,0);}
 
+function showRules(){var el=document.getElementById('rules-modal');if(el)el.style.display='flex';}
+function hideRules(){var el=document.getElementById('rules-modal');if(el)el.style.display='none';}
 function toast(msg,type){
   var t=document.createElement('div');
   t.className='toast'+(type==='err'?' err':type==='ok'?' ok':type==='info'?' info':'');
@@ -2449,5 +2451,34 @@ function getPoulesSummaryTooltip(teamName) {
     +'</div>';
 }
 </script>
+
+<!-- Modale règles du jeu -->
+<div id="rules-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:500;align-items:center;justify-content:center" onclick="if(event.target===this)hideRules()">
+  <div class="modal">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+      <h3 style="margin:0;font-size:1.1rem">📋 Règles du jeu</h3>
+      <button onclick="hideRules()" style="background:none;border:none;color:var(--muted);font-size:1.4rem;cursor:pointer;line-height:1">&times;</button>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:12px;font-size:.9rem">
+      <div style="background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.2);border-radius:8px;padding:12px">
+        <div style="color:var(--grn);font-weight:600;margin-bottom:6px">✓ Bon résultat</div>
+        <div style="color:var(--txt)">Bon vainqueur (ou nul correct) → <strong>côte × 2</strong></div>
+      </div>
+      <div style="background:rgba(34,197,94,.12);border:1px solid rgba(34,197,94,.3);border-radius:8px;padding:12px">
+        <div style="color:var(--grn);font-weight:600;margin-bottom:6px">✓✓ Bon résultat + bonne différence de buts</div>
+        <div style="color:var(--txt)">Même écart de buts que le résultat réel → <strong>côte × 5</strong></div>
+      </div>
+      <div style="background:rgba(245,166,35,.1);border:1px solid rgba(245,166,35,.3);border-radius:8px;padding:12px">
+        <div style="color:var(--gold);font-weight:600;margin-bottom:6px">🎯 Score exact</div>
+        <div style="color:var(--txt)">Score parfait → <strong>côte × 10</strong></div>
+      </div>
+      <div style="border-top:1px solid var(--bdr);padding-top:10px;font-size:.78rem;color:var(--muted);text-align:center">
+        Cotes Pinnacle · figées la veille du match<br>
+        <span style="font-size:.7rem">Phase de poules CdM 26 : 1pt bon résultat · 3pts score exact</span>
+      </div>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
