@@ -27,7 +27,7 @@
 })();
 </script>
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Prono CDM 26 v2.5.22</title>
+<title>Prono CDM 26 v2.5.23</title>
 <meta name="theme-color" content="#f5a623">
 <meta name="mobile-web-app-capable" content="yes">
 <style>
@@ -264,7 +264,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 <div id="save-bar-portal"></div>
 <div class="ov" id="ov"></div>
 <nav class="sb" id="sb">
-  <div class="sb-logo" onclick="logoClick()" style="cursor:default">&#127942; <span>PRONO CDM 26</span><span style="font-size:.6rem;opacity:.45;margin-left:6px;font-weight:400">v2.5.22</span></div>
+  <div class="sb-logo" onclick="logoClick()" style="cursor:default">&#127942; <span>PRONO CDM 26</span><span style="font-size:.6rem;opacity:.45;margin-left:6px;font-weight:400">v2.5.23</span></div>
   <div id="grp-chip" style="padding:4px 20px 8px;font-size:.72rem;color:var(--gold);opacity:.8"></div>
   <div class="sb-nav" id="snav"></div>
 </nav>
@@ -398,8 +398,8 @@ var SUPABASE_URL = atob('aHR0cHM6Ly9ya2Jycm5kcGFqY3p3cmhwam9hdw==')+atob('LnN1cG
 var SUPABASE_KEY = atob('c2JfcHVibGlzaGFibGVfdg==')+atob('Y1JwTWFLaTlPY3F2MGV2aQ==')+atob('Yko1NHdfZVg2ZjNUczg=');
 var ADMIN = atob('YWRtaW5wcm9ubw==');
 // Emergency code stored in Supabase config
-var VERSION = '2.5.22';
-var BUILD = '29/06/2026 17:00';
+var VERSION = '2.5.23';
+var BUILD = '01/07/2026 10:00';
 var GROUP_ID = (typeof URLSearchParams!=='undefined')?(new URLSearchParams(window.location.search).get('g')||null):null;
 var S={user:null,page:'accueil',tab:'POULES',grp:'ALL',cpw:false,adm:false,qf:'all',statsTab:'global'};
 var adminMode=false;
@@ -542,23 +542,27 @@ var BRACKET_LOSER = {
 };
 
 // Détermine le vainqueur d'un match KO à partir de son résultat
-// En KO il ne peut pas y avoir de nul → si score nul on ne propage pas (match pas terminé)
+// En KO : si winner défini (TAB), l'utiliser; sinon déduire du score
 function getWinner(matchId) {
   var r = DB.results[matchId];
   if (!r) return null;
-  if (r.h === r.a) return null; // nul = pas encore de vainqueur (prolongations en cours)
   var m = null;
   for (var i=0;i<M.length;i++) if (M[i].id===matchId){m=M[i];break;}
   if (!m) return null;
+  // TAB : winner défini en base
+  if (m.win) return m.win==='h' ? m.h : m.a;
+  // Victoire nette : déduire du score
+  if (r.h === r.a) return null; // nul sans winner = match pas terminé
   return r.h > r.a ? m.h : m.a;
 }
 function getLoser(matchId) {
   var r = DB.results[matchId];
   if (!r) return null;
-  if (r.h === r.a) return null;
   var m = null;
   for (var i=0;i<M.length;i++) if (M[i].id===matchId){m=M[i];break;}
   if (!m) return null;
+  if (m.win) return m.win==='h' ? m.a : m.h;
+  if (r.h === r.a) return null;
   return r.h > r.a ? m.a : m.h;
 }
 
@@ -620,18 +624,28 @@ function getMatchOdds(id){for(var i=0;i<M.length;i++)if(M[i].id==id)return{oh:M[
 //                       nul (poules avec côtes) : nul correct = côte nul×2, score exact nul = côte nul×10, nul bon écart = côte nul×5
 function calcPts(pn,r,odds){
   if(!pn||!r)return 0;
+  var isPoule=!odds||odds.ph==='POULES';
+  // En KO avec TAB : winner défini → seul le bon vainqueur compte (côte×2), exact/diff impossibles
+  var tabMatch=!isPoule&&odds&&odds.win;
+  if(tabMatch){
+    // Vainqueur pronostiqué
+    var pronoWin=pn.h>pn.a?'h':(pn.h<pn.a?'a':null);
+    if(pronoWin===odds.win){
+      var ref=odds.win==='h'?odds.oh:odds.oa;
+      return ref?Math.round(ref*2*100)/100:0;
+    }
+    return 0;
+  }
+  // Cas normal (victoire nette ou poules)
   var exact=(pn.h===r.h&&pn.a===r.a);
-  var isNul=(r.h===r.a);
   var goodWinner=Math.sign(pn.h-pn.a)===Math.sign(r.h-r.a);
   var goodDiff=goodWinner&&Math.abs(pn.h-pn.a)===Math.abs(r.h-r.a)&&!exact;
-  var isPoule=!odds||odds.ph==='POULES';
   if(isPoule||(!odds.oh&&!odds.oa)){
-    // Système classique poules
     if(exact)return 3;
     if(goodWinner)return 1;
     return 0;
   }
-  // Système côtes KO — score à 90min+prolongations, TAB ignoré
+  var isNul=(r.h===r.a);
   var ref=isNul?odds.od:(r.h>r.a?odds.oh:odds.oa);
   if(!ref)return 0;
   if(exact)return Math.round(ref*10*100)/100;
@@ -661,10 +675,18 @@ function ptBadge(id,user){
   var pn=uPronos(user)[id],r=getRes(id);
   if(!pn||!r)return null;
   var odds=getMatchOdds(+id);
+  var earned=calcPts(pn,r,odds);
+  // Match aux TAB : seul bon vainqueur possible
+  var tabMatch=odds&&!(!odds||odds.ph==='POULES')&&odds.win;
+  if(tabMatch){
+    var pronoWin=pn.h>pn.a?'h':(pn.h<pn.a?'a':null);
+    if(pronoWin===odds.win)return{type:'ok',pts:earned};
+    return{type:'no',pts:0};
+  }
+  // Match normal
   var exact=(pn.h===r.h&&pn.a===r.a);
   var goodWinner=Math.sign(pn.h-pn.a)===Math.sign(r.h-r.a);
   var goodDiff=goodWinner&&Math.abs(pn.h-pn.a)===Math.abs(r.h-r.a)&&!exact;
-  var earned=calcPts(pn,r,odds);
   if(exact)return{type:'ex',pts:earned};
   if(goodDiff)return{type:'okd',pts:earned};
   if(goodWinner)return{type:'ok',pts:earned};
@@ -1198,6 +1220,17 @@ function cardMatch(m) {
   if (adminMode&&isAdmin()) {
     var delBtn=res?('<button class="rsb" onclick="hDelRes('+m.id+')" style="color:var(--red)">&#10005;</button>'):'';
     adminBlock='<div class="rrow"><span style="font-size:.7rem;color:var(--muted)">&#128737; Score r\u00e9el:</span><input class="ri" type="number" min="0" max="20" id="rh'+m.id+'" value="'+(res?res.h:'')+'" placeholder="0"><span style="color:var(--muted)">-</span><input class="ri" type="number" min="0" max="20" id="ra'+m.id+'" value="'+(res?res.a:'')+'" placeholder="0"><button class="rsb" onclick="hSetRes('+m.id+')">&#10003;</button>'+delBtn+'</div>';
+    // Menu vainqueur TAB — affiché pour tous les matchs KO
+    if(m.ph!=='POULES'){
+      var curWin=m.win||'';
+      adminBlock+='<div class="rrow" style="margin-top:4px;gap:6px">'
+        +'<span style="font-size:.7rem;color:var(--muted)">&#127952; TAB:</span>'
+        +'<select id="rw'+m.id+'" style="flex:1;background:var(--bg);color:var(--txt);border:1px solid var(--bdr);border-radius:6px;padding:3px 6px;font-size:.8rem" onchange="hSetWinner('+m.id+',this.value)">'
+        +'<option value=""'+(curWin===''?' selected':'')+'>— Pas de TAB —</option>'
+        +'<option value="h"'+(curWin==='h'?' selected':'')+'>&#127944; '+m.h+'</option>'
+        +'<option value="a"'+(curWin==='a'?' selected':'')+'>&#127944; '+m.a+'</option>'
+        +'</select></div>';
+    }
   }
   return '<div class="mc'+(pn&&S.user!==ADMIN?' hp':'')+(res?' fin':'')+'">'
    +'<div class="mh"><span class="mtag">Match #'+m.id+(m.gr?' &middot; Grp '+m.gr:'')+'</span><span class="ms'+(res?' fin':'')+'">'+(res?'TERMIN&Eacute;':'&Agrave; VENIR')+'</span></div>'
@@ -1301,6 +1334,16 @@ async function hSetRes(id){
 async function hDelRes(id){
   if(!isAdmin()){toast('Acc\u00e8s refus\u00e9','err');return;}
   await delRes(id);toast('Score supprim\u00e9');render();
+}
+async function hSetWinner(id,val){
+  if(!isAdmin()||!sb)return;
+  var w=val||null;
+  await sb.from('matches').update({winner:w}).eq('id',+id);
+  for(var i=0;i<M.length;i++)if(M[i].id===+id){M[i].win=w;break;}
+  // Propager le qualifié si winner défini
+  if(w&&BRACKET_NEXT[+id])await propagateMatch(+id);
+  toast(w?'Vainqueur TAB : '+(w==='h'?M.find(function(m){return m.id===+id;}).h:M.find(function(m){return m.id===+id;}).a)+' \u2713':'TAB effacé');
+  render();
 }
 async function hPropagateAll(){
   if(!isAdmin()){toast('Acc\u00e8s refus\u00e9','err');return;}
