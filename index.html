@@ -27,7 +27,7 @@
 })();
 </script>
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Prono CDM 26 v2.5.26</title>
+<title>Prono CDM 26 v2.5.28</title>
 <meta name="theme-color" content="#f5a623">
 <meta name="mobile-web-app-capable" content="yes">
 <style>
@@ -59,6 +59,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .hsub{color:var(--muted);margin-top:10px;max-width:520px;line-height:1.6}
 .sec-title{font-size:.85rem;color:var(--muted);margin-bottom:12px;text-transform:uppercase;letter-spacing:1px;margin-top:28px}
 .tabs{display:flex;gap:8px;flex-wrap:wrap;margin-top:20px}
+.match-filters-sticky{position:sticky;top:var(--ban,0px);z-index:90;background:var(--bg);padding-bottom:8px;margin-bottom:4px}
 .tb{padding:8px 14px;border-radius:6px;border:1px solid var(--bdr);background:var(--card);color:var(--muted);cursor:pointer;font-size:.78rem;font-weight:600}
 .tb.on{background:var(--gold);color:#000;border-color:var(--gold)}
 .gf{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
@@ -235,6 +236,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   .htitle{font-size:2rem}
   .pi{width:52px;height:52px;font-size:1.2rem}
   .bktbl-wrap{max-width:calc(100vw - 32px);overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .match-filters-sticky{position:static}
 }
 
 /* Save-bar portal : toujours fixed, au-dessus de tout */
@@ -264,7 +266,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 <div id="save-bar-portal"></div>
 <div class="ov" id="ov"></div>
 <nav class="sb" id="sb">
-  <div class="sb-logo" onclick="logoClick()" style="cursor:default">&#127942; <span>PRONO CDM 26</span><span style="font-size:.6rem;opacity:.45;margin-left:6px;font-weight:400">v2.5.26</span></div>
+  <div class="sb-logo" onclick="logoClick()" style="cursor:default">&#127942; <span>PRONO CDM 26</span><span style="font-size:.6rem;opacity:.45;margin-left:6px;font-weight:400">v2.5.28</span></div>
   <div id="grp-chip" style="padding:4px 20px 8px;font-size:.72rem;color:var(--gold);opacity:.8"></div>
   <div class="sb-nav" id="snav"></div>
 </nav>
@@ -356,7 +358,7 @@ var supabase = {
         var ws=new WebSocket(wsUrl);
         ws.onopen=function(){
           ws.send(JSON.stringify({topic:'realtime:public',event:'phx_join',ref:String(++wsRef),
-            payload:{config:{postgres_changes:[{event:'*',schema:'public',table:'results'},{event:'*',schema:'public',table:'pronos'}]}}}));
+            payload:{config:{postgres_changes:[{event:'*',schema:'public',table:'results'},{event:'*',schema:'public',table:'pronos'},{event:'UPDATE',schema:'public',table:'matches'},{event:'*',schema:'public',table:'confrontations'},{event:'*',schema:'public',table:'confrontation_groups'}]}}}));
         };
         ws.onmessage=function(ev){
           setTimeout(function(){
@@ -398,13 +400,13 @@ var SUPABASE_URL = atob('aHR0cHM6Ly9ya2Jycm5kcGFqY3p3cmhwam9hdw==')+atob('LnN1cG
 var SUPABASE_KEY = atob('c2JfcHVibGlzaGFibGVfdg==')+atob('Y1JwTWFLaTlPY3F2MGV2aQ==')+atob('Yko1NHdfZVg2ZjNUczg=');
 var ADMIN = atob('YWRtaW5wcm9ubw==');
 // Emergency code stored in Supabase config
-var VERSION = '2.5.26';
-var BUILD = '01/07/2026 16:00';
+var VERSION = '2.5.28';
+var BUILD = '02/07/2026 12:00';
 var GROUP_ID = (typeof URLSearchParams!=='undefined')?(new URLSearchParams(window.location.search).get('g')||null):null;
 var S={user:null,page:'accueil',tab:'POULES',grp:'ALL',cpw:false,adm:false,qf:'all',statsTab:'global'};
 var adminMode=false;
 var logoClicks=0,logoTimer=null,syncTimer=null;
-var DB={users:[],userMap:{},pronos:{},results:{},config:{pin:'1234',apikey:''},groups:[]};
+var DB={users:[],userMap:{},pronos:{},results:{},config:{pin:'1234',apikey:''},groups:[],confrontations:[],confrontationGroups:[]};
 var sb = null;
 var SB_ERROR = '';
 function initSB() {
@@ -955,7 +957,7 @@ function render() {
       }
     }
     S._prevPage = S.page;
-    var pages={accueil:pgAccueil,matchs:pgMatchs,classement:pgClass,tableau:pgTableau,groupes:pgGroupes,profil:pgProfil,stats:pgStats};
+    var pages={accueil:pgAccueil,matchs:pgMatchs,classement:pgClass,tableau:pgTableau,groupes:pgGroupes,profil:pgProfil,stats:pgStats,confrontations:pgConfrontations};
     var fn = pages[S.page] || pgAccueil;
     document.getElementById('main').innerHTML = fn();
     // Scroll vers premier match sans score après rendu
@@ -1190,7 +1192,8 @@ function pgMatchs() {
     +'</div>';
 
   return '<div class="pt">LES MATCHS</div><p class="psub">Tous les 104 matchs &middot; Saisissez votre pronostic directement sur chaque carte.</p>'
-    +notifH+banner+tabsH+grpH+searchH+qfH
+    +notifH+banner
+    +'<div class="match-filters-sticky">'+tabsH+grpH+searchH+qfH+'</div>'
     +(filtered.length===0?'<div class="empty" style="margin-top:20px">Aucun match pour ce filtre.</div>':'<div class="mg">'+cards+'</div>');
 }
 
@@ -1874,9 +1877,13 @@ async function loadAll() {
     for(var i=0;i<results.length;i++) DB.results[results[i].match_id]={h:results[i].home_score,a:results[i].away_score};
     for(var i=0;i<config.length;i++) DB.config[config[i].key]=config[i].value;
     var rM = await sb.from('matches').select('*').order('id');
+    var rCF  = await sb.from('confrontations').select('*').order('created_at');
+    var rCFG = await sb.from('confrontation_groups').select('*');
     if(rM.data&&rM.data.length>0){
       M=rM.data.map(function(r){ return {id:r.id,ph:r.phase,gr:r.grp,dt:r.dt,ti:r.ti,h:r.home,a:r.away,v:r.venue,oh:r.odds_h?+r.odds_h:null,oa:r.odds_a?+r.odds_a:null,od:r.odds_d?+r.odds_d:null,win:r.winner||null}; });
     }
+    DB.confrontations      = rCF.data  || [];
+    DB.confrontationGroups = rCFG.data || [];
   } catch(e){ toast('Erreur chargement: '+e.message,'err'); }
 }
 
@@ -1906,6 +1913,30 @@ function setupRealtime() {
       })
       .on('postgres_changes',{event:'*',schema:'public',table:'pronos'},function(){
         setTimeout(function(){ reloadPronos().then(function(){ if(S.page==='classement'||S.page==='accueil') render(); }); },0);
+      })
+      .on('postgres_changes',{event:'UPDATE',schema:'public',table:'matches'},function(payload){
+        setTimeout(function(){
+          // Mettre à jour le match localement (nom équipe, cotes, winner)
+          var p=payload.new;
+          for(var i=0;i<M.length;i++){
+            if(M[i].id===p.id){
+              if(p.home) M[i].h=p.home;
+              if(p.away) M[i].a=p.away;
+              if(p.odds_h) M[i].oh=+p.odds_h;
+              if(p.odds_a) M[i].oa=+p.odds_a;
+              if(p.odds_d) M[i].od=+p.odds_d;
+              if(p.winner!==undefined) M[i].win=p.winner||null;
+              break;
+            }
+          }
+          render();
+        },0);
+      })
+      .on('postgres_changes',{event:'*',schema:'public',table:'confrontations'},function(){
+        setTimeout(async function(){var rCF=await sb.from('confrontations').select('*').order('created_at');DB.confrontations=rCF.data||[];render();},0);
+      })
+      .on('postgres_changes',{event:'*',schema:'public',table:'confrontation_groups'},function(){
+        setTimeout(async function(){var rCFG=await sb.from('confrontation_groups').select('*');DB.confrontationGroups=rCFG.data||[];render();},0);
       })
       .subscribe();
   } catch(e){ console.warn('Realtime:',e.message); }
@@ -2136,7 +2167,7 @@ async function init(){
   try{setupRealtime();}catch(e){console.warn('Realtime:',e);}
   startAutoSync();
   var _pg=localStorage.getItem('cdm_pg'),_tb=localStorage.getItem('cdm_tab'),_gr=localStorage.getItem('cdm_grp2');
-  if(_pg&&['accueil','matchs','classement','tableau','groupes','profil','stats'].indexOf(_pg)!==-1){if(_pg==='stats'&&!isAdmin())_pg='accueil';S.page=_pg;}
+  if(_pg&&['accueil','matchs','classement','tableau','groupes','profil','stats','confrontations'].indexOf(_pg)!==-1){if(_pg==='stats'&&!isAdmin())_pg='accueil';S.page=_pg;}
   if(_tb)S.tab=_tb;
   if(_gr)S.grp=_gr;
   render();
@@ -2156,6 +2187,8 @@ function toast(msg,type){
 }
 
 function renderNav(){
+  var myGid=S.user&&S.user!==ADMIN&&DB.userMap[S.user]?DB.userMap[S.user].group_id:null;
+  var hasConfrontation=isAdmin()||(myGid&&DB.confrontationGroups.some(function(cg){return cg.group_id===myGid;}));
   var items = S.user ? [
     {p:'accueil',ic:'&#8962;',lb:'Accueil',ti:'🏠'},
     {p:'matchs',ic:'&#128197;',lb:'Matchs',ti:'📅'},
@@ -2167,7 +2200,7 @@ function renderNav(){
     {p:'accueil',ic:'&#8962;',lb:'Connexion',ti:'🏠'}
   ];
   if(isAdmin()) items.splice(4,0,{p:'stats',ic:'&#128202;',lb:'Stats',ti:'📊'});
-
+  if(hasConfrontation) items.splice(items.length-1,0,{p:'confrontations',ic:'⚔️',lb:'Équipes',ti:'⚔️'});
   /* ── Sidebar desktop ── */
   var h='';
   for(var i=0;i<items.length;i++){
@@ -2177,31 +2210,26 @@ function renderNav(){
     h+='<div class="ni'+(S.page===it.p?' on':'')+'" onclick="go(\''+it.p+'\')">'+'<span>'+it.ic+'</span> <span>'+it.lb+'</span>'+nb2H+'</div>';
   }
   document.getElementById('snav').innerHTML=h;
-
   /* ── Bottom nav mobile ── */
   var bnav=document.getElementById('bnav');
   if(bnav){
-    /* Tous les items, labels courts pour tenir sur mobile */
-    var lbls={accueil:'Accueil',matchs:'Matchs',classement:'Classmt',tableau:'Tableau',groupes:'Groupes',profil:'Profil',stats:'Stats'};
+    var lbls={accueil:'Accueil',matchs:'Matchs',classement:'Classmt',tableau:'Tableau',groupes:'Groupes',profil:'Profil',stats:'Stats',confrontations:'Équipes'};
     var bh='';
     for(var j=0;j<items.length;j++){
       var bi=items[j];
       var bnb=(bi.p==='matchs'&&S.user&&S.user!==ADMIN)?pendingCount():0;
       var bnbH=bnb>0?'<span class="bnav-badge">'+bnb+'</span>':'';
       var shortLb=lbls[bi.p]||bi.lb;
-      bh+='<button class="bnav-item'+(S.page===bi.p?' on':'')+'" onclick="go(\''+bi.p+'\')" aria-label="'+bi.lb+'">'
-        +bnbH
-        +'<span class="bni">'+bi.ti+'</span>'
+      bh+='<button class="bnav-item'+(S.page===bi.p?' on':'')+'" onclick="go(\''+ bi.p +'\')" aria-label="'+bi.lb+'">'
+        +bnbH+'<span class="bni">'+bi.ti+'</span>'
         +'<span>'+shortLb+'</span>'
         +'</button>';
     }
     bnav.innerHTML=bh;
   }
-
   var chip=document.getElementById('grp-chip');
   if(chip) chip.innerHTML=currentGroupName()?'&#128101; '+currentGroupName():'';
 }
-
 function toggleMenu(){
   document.getElementById('sb').classList.toggle('open');
   document.getElementById('ov').classList.toggle('open');
@@ -2396,6 +2424,171 @@ async function hRenameGroupPrompt(gid, currentName) {
   } else {
     toast('Erreur renommage','err');
   }
+}
+
+// ═══════════════════════════════════════════════
+//  CONFRONTATIONS INTER-ÉQUIPES
+// ═══════════════════════════════════════════════
+
+function groupRatio(groupId){
+  var totalPts=0,totalPronos=0;
+  for(var i=0;i<DB.users.length;i++){
+    var u=DB.users[i];
+    if(u.pseudo_key===ADMIN) continue;
+    if(u.group_id!==groupId) continue;
+    var st=pts(u.id);
+    totalPts+=st.p; totalPronos+=st.pl;
+  }
+  if(totalPronos===0) return 0;
+  return Math.round(totalPts/totalPronos); // entier, pas de décimales
+}
+
+function getMyConfrontations(){
+  var myGid=S.user&&S.user!==ADMIN&&DB.userMap[S.user]?DB.userMap[S.user].group_id:null;
+  if(!myGid&&!isAdmin()) return [];
+  return DB.confrontations.filter(function(cf){
+    return DB.confrontationGroups.some(function(cg){
+      return cg.confrontation_id===cf.id&&(isAdmin()||cg.group_id===myGid);
+    });
+  });
+}
+
+function pgConfrontations(){
+  var myGid=S.user&&S.user!==ADMIN&&DB.userMap[S.user]?DB.userMap[S.user].group_id:null;
+  var visibleCFs=isAdmin()?DB.confrontations:getMyConfrontations();
+  var cfTab=S.cfTab||'equipes';
+
+  var h='<div class="pt">⚔️ CONFRONTATIONS</div>';
+  h+='<div class="tabs" style="margin-bottom:16px">'
+    +'<button class="tb'+(cfTab==='equipes'?' on':'')+'" onclick="setCfTab(\'equipes\')">🏅 Équipes</button>'
+    +'<button class="tb'+(cfTab==='individuel'?' on':'')+'" onclick="setCfTab(\'individuel\')">👤 Individuel</button>'
+    +'</div>';
+
+  if(visibleCFs.length===0){
+    h+='<div class="card" style="text-align:center;color:var(--muted);padding:32px">Aucune confrontation en cours</div>';
+  } else {
+    for(var ci=0;ci<visibleCFs.length;ci++){
+      var cf=visibleCFs[ci];
+      var cfGids=DB.confrontationGroups.filter(function(cg){return cg.confrontation_id===cf.id;}).map(function(cg){return cg.group_id;});
+      h+='<div class="card" style="padding:0;margin-bottom:20px">';
+      h+='<div style="padding:14px 16px;border-bottom:1px solid var(--bdr);font-weight:700;font-size:1rem">⚔️ '+cf.name+'</div>';
+
+      if(cfTab==='equipes'){
+        var teams=cfGids.map(function(gid){
+          var grp=DB.groups.find(function(g){return g.id===gid;})||{id:gid,name:'Équipe inconnue'};
+          var members=DB.users.filter(function(u){return u.group_id===gid&&u.pseudo_key!==ADMIN;});
+          var totalPts=0,totalPronos=0;
+          members.forEach(function(u){var st=pts(u.id);totalPts+=st.p;totalPronos+=st.pl;});
+          var ratio=totalPronos>0?Math.round(totalPts/totalPronos):0;
+          return {gid:gid,name:grp.name,nb:members.length,totalPts:Math.round(totalPts),totalPronos:totalPronos,ratio:ratio};
+        });
+        teams.sort(function(a,b){return b.ratio-a.ratio||b.totalPts-a.totalPts;});
+        h+='<div style="overflow-x:auto"><table class="rt"><thead><tr><th>#</th><th>Équipe</th><th class="r">Joueurs</th><th class="r">Points</th><th class="r">Pronos</th><th class="r gd">Score</th></tr></thead><tbody>';
+        for(var ti=0;ti<teams.length;ti++){
+          var t=teams[ti];
+          var isMe=(t.gid===myGid);
+          var medal=ti===0?'🥇':ti===1?'🥈':ti===2?'🥉':(ti+1);
+          h+='<tr style="'+(isMe?'background:rgba(245,166,35,.1);':'')+'font-weight:'+(isMe?'700':'400')+'">'
+            +'<td class="rn'+(ti<3?' t':'')+'">'+medal+'</td>'
+            +'<td>'+t.name+(isMe?' <span style="font-size:.7rem;color:var(--gold)">(vous)</span>':'')+'</td>'
+            +'<td class="rnc">'+t.nb+'</td>'
+            +'<td class="rnc">'+t.totalPts+'</td>'
+            +'<td class="rnc">'+t.totalPronos+'</td>'
+            +'<td class="rpts">'+t.ratio+'</td>'
+            +'</tr>';
+        }
+        h+='</tbody></table></div>';
+
+      } else {
+        var allPlayers=[];
+        cfGids.forEach(function(gid){
+          var grp=DB.groups.find(function(g){return g.id===gid;})||{name:'?'};
+          DB.users.filter(function(u){return u.group_id===gid&&u.pseudo_key!==ADMIN;}).forEach(function(u){
+            var st=pts(u.id);
+            allPlayers.push({ps:u.pseudo_display||u.pseudo_key,gname:grp.name,gid:gid,p:st.p,ex:st.ex,ok:st.ok,pl:st.pl});
+          });
+        });
+        allPlayers.sort(function(a,b){return b.p-a.p||b.ex-a.ex;});
+        h+='<div style="overflow-x:auto"><table class="rt"><thead><tr><th>#</th><th>Joueur</th><th>Équipe</th><th class="r">🎯</th><th class="r">✓</th><th class="r gd">Pts</th></tr></thead><tbody>';
+        for(var pi=0;pi<allPlayers.length;pi++){
+          var pl=allPlayers[pi];
+          var isMe=(pl.gid===myGid);
+          var medal2=pi===0?'🥇':pi===1?'🥈':pi===2?'🥉':(pi+1);
+          h+='<tr style="'+(isMe?'background:rgba(245,166,35,.1);':'')+'font-weight:'+(isMe?'700':'400')+'">'
+            +'<td class="rn'+(pi<3?' t':'')+'">'+medal2+'</td>'
+            +'<td>'+pl.ps+'</td>'
+            +'<td style="font-size:.75rem;color:var(--muted)">'+pl.gname+'</td>'
+            +'<td class="rnc">'+pl.ex+'</td>'
+            +'<td class="rnc">'+pl.ok+'</td>'
+            +'<td class="rpts">'+(Number.isInteger(pl.p)?pl.p:pl.p.toFixed(2))+'</td>'
+            +'</tr>';
+        }
+        h+='</tbody></table></div>';
+      }
+      h+='</div>';
+    }
+  }
+
+  // Panneau admin
+  if(isAdmin()){
+    h+='<div class="card" style="margin-top:24px">';
+    h+='<h4 style="margin-bottom:16px">⚙️ Gérer les confrontations</h4>';
+    if(DB.confrontations.length>0){
+      h+='<h5 style="margin-bottom:8px;color:var(--muted)">Confrontations existantes</h5>';
+      for(var xi=0;xi<DB.confrontations.length;xi++){
+        var xcf=DB.confrontations[xi];
+        var xgids=DB.confrontationGroups.filter(function(cg){return cg.confrontation_id===xcf.id;}).map(function(cg){
+          var g=DB.groups.find(function(gg){return gg.id===cg.group_id;});
+          return g?g.name:cg.group_id;
+        });
+        h+='<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--bdr)">'
+          +'<div><strong>'+xcf.name+'</strong><br><span style="font-size:.75rem;color:var(--muted)">'+xgids.join(' vs ')+'</span></div>'
+          +'<button class="btn-o" style="color:var(--red)" onclick="hDeleteConfrontation(\''+xcf.id+'\')">🗑</button>'
+          +'</div>';
+      }
+      h+='<div style="margin-top:20px"></div>';
+    }
+    h+='<h5 style="margin-bottom:8px;color:var(--muted)">Créer une confrontation</h5>';
+    h+='<input id="cf-name" class="fi" placeholder="Nom de la confrontation" style="margin-bottom:12px"><br>';
+    h+='<div style="margin-bottom:12px">';
+    for(var gi=0;gi<DB.groups.length;gi++){
+      var gg=DB.groups[gi];
+      h+='<label style="display:flex;align-items:center;gap:8px;padding:4px 0;cursor:pointer">'
+        +'<input type="checkbox" id="cfg-'+gg.id+'" value="'+gg.id+'"> '+gg.name+'</label>';
+    }
+    h+='</div>';
+    h+='<button class="btn-g" onclick="hCreateConfrontation()">➕ Créer la confrontation</button>';
+    h+='</div>';
+  }
+  return h;
+}
+
+function setCfTab(t){S.cfTab=t;render();}
+
+async function hCreateConfrontation(){
+  if(!isAdmin()||!sb) return;
+  var name=(document.getElementById('cf-name')||{}).value||'';
+  if(!name.trim()){toast('Donne un nom à la confrontation !','err');return;}
+  var checked=DB.groups.filter(function(g){var el=document.getElementById('cfg-'+g.id);return el&&el.checked;});
+  if(checked.length<2){toast('Sélectionne au moins 2 équipes !','err');return;}
+  var r=await sb.from('confrontations').insert({name:name.trim()}).select();
+  if(r.error||!r.data||!r.data[0]){toast('Erreur création','err');return;}
+  var cfId=r.data[0].id;
+  var rows=checked.map(function(g){return {confrontation_id:cfId,group_id:g.id};});
+  await sb.from('confrontation_groups').insert(rows);
+  var rCF=await sb.from('confrontations').select('*').order('created_at');
+  var rCFG=await sb.from('confrontation_groups').select('*');
+  DB.confrontations=rCF.data||[];
+  DB.confrontationGroups=rCFG.data||[];
+  toast('Confrontation créée ✓');render();
+}
+
+async function hDeleteConfrontation(cfId){
+  if(!isAdmin()||!sb) return;
+  await sb.from('confrontations').delete().eq('id',cfId);
+  DB.confrontations=DB.confrontations.filter(function(c){return c.id!==cfId;});
+  DB.confrontationGroups=DB.confrontationGroups.filter(function(c){return c.confrontation_id!==cfId;});
+  toast('Confrontation supprimée');render();
 }
 
 function pgTableau() {
