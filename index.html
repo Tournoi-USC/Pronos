@@ -27,7 +27,7 @@
 })();
 </script>
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Prono CDM 26 v2.5.29</title>
+<title>Prono CDM 26 v2.5.31</title>
 <meta name="theme-color" content="#f5a623">
 <meta name="mobile-web-app-capable" content="yes">
 <style>
@@ -266,7 +266,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 <div id="save-bar-portal"></div>
 <div class="ov" id="ov"></div>
 <nav class="sb" id="sb">
-  <div class="sb-logo" onclick="logoClick()" style="cursor:default">&#127942; <span>PRONO CDM 26</span><span style="font-size:.6rem;opacity:.45;margin-left:6px;font-weight:400">v2.5.29</span></div>
+  <div class="sb-logo" onclick="logoClick()" style="cursor:default">&#127942; <span>PRONO CDM 26</span><span style="font-size:.6rem;opacity:.45;margin-left:6px;font-weight:400">v2.5.31</span></div>
   <div id="grp-chip" style="padding:4px 20px 8px;font-size:.72rem;color:var(--gold);opacity:.8"></div>
   <div class="sb-nav" id="snav"></div>
 </nav>
@@ -400,8 +400,8 @@ var SUPABASE_URL = atob('aHR0cHM6Ly9ya2Jycm5kcGFqY3p3cmhwam9hdw==')+atob('LnN1cG
 var SUPABASE_KEY = atob('c2JfcHVibGlzaGFibGVfdg==')+atob('Y1JwTWFLaTlPY3F2MGV2aQ==')+atob('Yko1NHdfZVg2ZjNUczg=');
 var ADMIN = atob('YWRtaW5wcm9ubw==');
 // Emergency code stored in Supabase config
-var VERSION = '2.5.29';
-var BUILD = '03/07/2026 10:00';
+var VERSION = '2.5.31';
+var BUILD = '03/07/2026 12:00';
 var GROUP_ID = (typeof URLSearchParams!=='undefined')?(new URLSearchParams(window.location.search).get('g')||null):null;
 var S={user:null,page:'accueil',tab:'POULES',grp:'ALL',cpw:false,adm:false,qf:'all',statsTab:'global'};
 var adminMode=false;
@@ -1829,19 +1829,55 @@ async function loadAll() {
   try {
     var loggedSes = localStorage.getItem('cdm_ses');
     var isAdminSession = (loggedSes === ADMIN);
-    var rU, rUg = null, rUses = null;
+
+    // Charger confrontation_groups en premier pour savoir quels groupes sont liés au nôtre
+    var rCFG = await sb.from('confrontation_groups').select('*');
+    var rCF  = await sb.from('confrontations').select('*').order('created_at');
+    DB.confrontations      = rCF.data  || [];
+    DB.confrontationGroups = rCFG.data || [];
+
+    // Déterminer les groupes à charger
+    var groupsToLoad = null; // null = tous (admin ou pas de groupe)
     if (GROUP_ID && !isAdminSession) {
-      rU    = await sb.from('users').select('*').eq('pseudo_key', ADMIN);
-      rUg   = await sb.from('users').select('*').eq('group_id', GROUP_ID);
-      if (loggedSes && loggedSes !== ADMIN)
-        if (GROUP_ID) {
-          rUses = await sb.from('users').select('*').eq('pseudo_key', loggedSes).eq('group_id', GROUP_ID);
-        } else {
-          rUses = await sb.from('users').select('*').eq('pseudo_key', loggedSes);
-        }
-    } else {
-      rU = await sb.from('users').select('*');
+      // Trouver toutes les confrontations qui impliquent notre groupe
+      var myCfIds = DB.confrontationGroups
+        .filter(function(cg){ return cg.group_id === GROUP_ID; })
+        .map(function(cg){ return cg.confrontation_id; });
+      if (myCfIds.length > 0) {
+        // Charger les users des groupes participants à nos confrontations
+        groupsToLoad = DB.confrontationGroups
+          .filter(function(cg){ return myCfIds.indexOf(cg.confrontation_id) > -1; })
+          .map(function(cg){ return cg.group_id; });
+        // Dédupliquer + inclure notre groupe
+        groupsToLoad = groupsToLoad.filter(function(gid,i,a){ return a.indexOf(gid)===i; });
+        if(groupsToLoad.indexOf(GROUP_ID) === -1) groupsToLoad.push(GROUP_ID);
+      } else {
+        // Pas de confrontation : charger uniquement notre groupe
+        groupsToLoad = [GROUP_ID];
+      }
     }
+
+    // Charger users selon le scope
+    var rU;
+    if (groupsToLoad === null || isAdminSession) {
+      rU = await sb.from('users').select('*');
+    } else {
+      // Charger les users de tous les groupes concernés
+      var userPromises = groupsToLoad.map(function(gid){
+        return sb.from('users').select('*').eq('group_id', gid);
+      });
+      // Toujours inclure l'admin
+      userPromises.push(sb.from('users').select('*').eq('pseudo_key', ADMIN));
+      var userResults = await Promise.all(userPromises);
+      var allUsers = [], seenU = {};
+      userResults.forEach(function(r){
+        (r.data||[]).forEach(function(u){
+          if(!seenU[u.id]){ seenU[u.id]=true; allUsers.push(u); }
+        });
+      });
+      rU = { data: allUsers, error: null };
+    }
+
     var rP = await sb.from('pronos').select('*');
     var rR = await sb.from('results').select('*');
     var rC = await sb.from('config').select('*');
@@ -1851,18 +1887,19 @@ async function loadAll() {
     if(rR.error) console.warn('results:',rR.error.message);
     if(rC.error) console.warn('config:',rC.error.message);
     if(rG.error) console.warn('groups:',rG.error.message);
-    var users = rU.data || [];
-    var seenIds = {}; users.forEach(function(u){ seenIds[u.id]=true; });
-    if(rUg&&rUg.data) rUg.data.forEach(function(u){ if(!seenIds[u.id]){users.push(u);seenIds[u.id]=true;} });
-    if(rUses&&rUses.data) rUses.data.forEach(function(u){ if(!seenIds[u.id]&&(!GROUP_ID||u.group_id===GROUP_ID)){users.push(u);seenIds[u.id]=true;} });
-    var pronos  = rP.data || [];
-    var results = rR.data || [];
-    var config  = rC.data || [];
-    DB.groups   = rG.data || [];
-    if(GROUP_ID && !isAdminSession){
-      var gids=users.map(function(u){return u.id;});
-      pronos=pronos.filter(function(p){return gids.indexOf(p.user_id)>-1;});
+
+    var users  = rU.data  || [];
+    var pronos = rP.data  || [];
+    var results= rR.data  || [];
+    var config = rC.data  || [];
+    DB.groups  = rG.data  || [];
+
+    // Si pas admin et pas de confrontation, filtrer les pronos au groupe courant
+    if (GROUP_ID && !isAdminSession && groupsToLoad && groupsToLoad.length === 1) {
+      var gids = users.map(function(u){ return u.id; });
+      pronos = pronos.filter(function(p){ return gids.indexOf(p.user_id) > -1; });
     }
+
     DB.users=[]; DB.userMap={};
     for(var i=0;i<users.length;i++){ DB.users.push(users[i]); DB.userMap[users[i].pseudo_key]=users[i]; }
     DB.pronos={};
@@ -1877,13 +1914,9 @@ async function loadAll() {
     for(var i=0;i<results.length;i++) DB.results[results[i].match_id]={h:results[i].home_score,a:results[i].away_score};
     for(var i=0;i<config.length;i++) DB.config[config[i].key]=config[i].value;
     var rM = await sb.from('matches').select('*').order('id');
-    var rCF  = await sb.from('confrontations').select('*').order('created_at');
-    var rCFG = await sb.from('confrontation_groups').select('*');
     if(rM.data&&rM.data.length>0){
       M=rM.data.map(function(r){ return {id:r.id,ph:r.phase,gr:r.grp,dt:r.dt,ti:r.ti,h:r.home,a:r.away,v:r.venue,oh:r.odds_h?+r.odds_h:null,oa:r.odds_a?+r.odds_a:null,od:r.odds_d?+r.odds_d:null,win:r.winner||null}; });
     }
-    DB.confrontations      = rCF.data  || [];
-    DB.confrontationGroups = rCFG.data || [];
   } catch(e){ toast('Erreur chargement: '+e.message,'err'); }
 }
 
