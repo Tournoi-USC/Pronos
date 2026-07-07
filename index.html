@@ -27,7 +27,7 @@
 })();
 </script>
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Prono CDM 26 v2.5.31</title>
+<title>Prono CDM 26 v2.5.32</title>
 <meta name="theme-color" content="#f5a623">
 <meta name="mobile-web-app-capable" content="yes">
 <style>
@@ -266,7 +266,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 <div id="save-bar-portal"></div>
 <div class="ov" id="ov"></div>
 <nav class="sb" id="sb">
-  <div class="sb-logo" onclick="logoClick()" style="cursor:default">&#127942; <span>PRONO CDM 26</span><span style="font-size:.6rem;opacity:.45;margin-left:6px;font-weight:400">v2.5.31</span></div>
+  <div class="sb-logo" onclick="logoClick()" style="cursor:default">&#127942; <span>PRONO CDM 26</span><span style="font-size:.6rem;opacity:.45;margin-left:6px;font-weight:400">v2.5.32</span></div>
   <div id="grp-chip" style="padding:4px 20px 8px;font-size:.72rem;color:var(--gold);opacity:.8"></div>
   <div class="sb-nav" id="snav"></div>
 </nav>
@@ -400,8 +400,8 @@ var SUPABASE_URL = atob('aHR0cHM6Ly9ya2Jycm5kcGFqY3p3cmhwam9hdw==')+atob('LnN1cG
 var SUPABASE_KEY = atob('c2JfcHVibGlzaGFibGVfdg==')+atob('Y1JwTWFLaTlPY3F2MGV2aQ==')+atob('Yko1NHdfZVg2ZjNUczg=');
 var ADMIN = atob('YWRtaW5wcm9ubw==');
 // Emergency code stored in Supabase config
-var VERSION = '2.5.31';
-var BUILD = '03/07/2026 12:00';
+var VERSION = '2.5.32';
+var BUILD = '05/07/2026 10:00';
 var GROUP_ID = (typeof URLSearchParams!=='undefined')?(new URLSearchParams(window.location.search).get('g')||null):null;
 var S={user:null,page:'accueil',tab:'POULES',grp:'ALL',cpw:false,adm:false,qf:'all',statsTab:'global'};
 var adminMode=false;
@@ -538,8 +538,8 @@ var BRACKET_NEXT = {
   81:{next:94,side:'h'}, 82:{next:94,side:'a'}, 83:{next:93,side:'h'}, 84:{next:93,side:'a'},
   85:{next:96,side:'h'}, 86:{next:95,side:'h'}, 87:{next:96,side:'a'}, 88:{next:95,side:'a'},
   // 8es → Quarts
-  89:{next:97,side:'h'}, 90:{next:97,side:'a'}, 91:{next:98,side:'h'}, 92:{next:98,side:'a'},
-  93:{next:99,side:'h'}, 94:{next:99,side:'a'}, 95:{next:100,side:'h'}, 96:{next:100,side:'a'},
+  89:{next:97,side:'h'}, 90:{next:97,side:'a'}, 91:{next:99,side:'h'}, 92:{next:99,side:'a'},
+  93:{next:98,side:'h'}, 94:{next:98,side:'a'}, 95:{next:100,side:'h'}, 96:{next:100,side:'a'},
   // Quarts → Demis
   97:{next:101,side:'h'}, 98:{next:101,side:'a'}, 99:{next:102,side:'h'}, 100:{next:102,side:'a'},
   // Demis → Finale + 3e place
